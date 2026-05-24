@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Dimensions — now controlled by config.env via generated.xml:
+      - ROUNDED_CORNER_RADIUS → rounded_corner_radius, secondary_*, *_top, *_bottom
+      - STATUS_BAR_HEIGHT → status_bar_height, status_bar_height_portrait, quick_qs_offset_height
+    Edit config.env and re-build to change these values.
+-->
+<resources>
+
+    <!-- Status bar height for landscape (not controlled by config.env yet) -->
+    <dimen name="status_bar_height_landscape">24.0dp</dimen>
+
+</resources>

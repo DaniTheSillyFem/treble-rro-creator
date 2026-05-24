@@ -1,0 +1,69 @@
+# Allow init to execute the fingerprint HAL binary (domain transition)
+# The phone's existing policy already allows init -> hal_fingerprint_default_exec
+# for the v3.0 binary, but we need it explicitly for our new binary too
+allow init hal_fingerprint_default_exec:file { execute execute_no_trans };
+
+# Allow fingerprint HAL to load shared libraries (labeled vendor_file)
+allow hal_fingerprint_default vendor_file:file { read execute getattr open map };
+
+# Allow fingerprint HAL to access fingerprint device nodes
+# Source: device_samsung_r3q/sepolicy/vendor/hal_fingerprint_default.te
+# /dev/esfp[0-9] is labeled fingerprint_sensor_device (from file_contexts)
+# /dev/goodix_fp is also labeled with this type by the vendor ueventd rules
+allow hal_fingerprint_default fingerprint_sensor_device:chr_file rw_file_perms;
+
+# Allow fingerprint HAL to read sysfs fingerprint attributes (sensor info)
+# Source: device_samsung_r3q/sepolicy/vendor/hal_fingerprint_default.te
+allow hal_fingerprint_default sysfs_fingerprint:dir r_dir_perms;
+allow hal_fingerprint_default sysfs_fingerprint:file r_file_perms;
+
+# Allow fingerprint HAL to access TEE (Qualcomm secure execution env)
+# Needed for cryptographic operations during enrollment/authentication
+# Source: device_samsung_r3q/sepolicy/vendor/hal_fingerprint_default.te
+allow hal_fingerprint_default tee_device:chr_file rw_file_perms;
+
+# Allow fingerprint HAL to read panel info (cell_id used as fingerprint seed)
+# Source: device_samsung_r3q/sepolicy/vendor/hal_fingerprint_default.te
+allow hal_fingerprint_default sysfs_touchscreenpanel:file r_file_perms;
+
+# Allow fingerprint HAL to read battery temperature
+# Source: device_samsung_r3q/sepolicy/vendor/hal_fingerprint_default.te
+# Note: r_file_recursive macro expanded manually (not supported in KSU sepolicy.rule format)
+allow hal_fingerprint_default sysfs_power_supply:dir r_dir_perms;
+allow hal_fingerprint_default sysfs_power_supply:file r_file_perms;
+allow hal_fingerprint_default sysfs_power_supply:lnk_file r_file_perms;
+
+# Allow fingerprint HAL to access /efs/biometrics for template storage
+# Source: device_samsung_r3q/sepolicy/vendor/hal_fingerprint_default.te
+# Note: r_file_recursive macro expanded manually
+allow hal_fingerprint_default efs_file:dir search;
+allow hal_fingerprint_default biometrics_efs_file:dir r_dir_perms;
+allow hal_fingerprint_default biometrics_efs_file:file r_file_perms;
+allow hal_fingerprint_default biometrics_efs_file:lnk_file r_file_perms;
+
+# Allow fingerprint HAL to create data files in /data/vendor/biometrics/ and subdirs
+# The init.rc mkdir with chown sets up directories. This allows the HAL to create
+# and manage template files within those directories.
+# Note: file_type_auto_trans macro not supported in KSU format. The init.rc mkdir
+# commands create directories with the right labels via the running kernel's
+# selinux labeling rules, so type_transition is not critical.
+allow hal_fingerprint_default vendor_biometrics_data_file:dir create_dir_perms;
+allow hal_fingerprint_default vendor_biometrics_data_file:file create_file_perms;
+
+# --- VIBRATOR HAL (sec-vibrator-2-2) ---
+# Allow init to execute the Samsung vibrator HAL binary
+allow init hal_vibrator_default_exec:file { execute execute_no_trans };
+
+# Allow vibrator HAL to access timed_output vibrator sysfs
+# These nodes control vibration intensity, haptic engine, and trigger queues
+# on Samsung devices (Galaxy A90 5G / SM-A908)
+allow hal_vibrator_default sysfs:file rw_file_perms;
+allow hal_vibrator_default sysfs:dir r_dir_perms;
+
+# Allow vibrator HAL to access leds vibrator sysfs (alternative control path)
+allow hal_vibrator_default sysfs_leds:file rw_file_perms;
+allow hal_vibrator_default sysfs_leds:dir r_dir_perms;
+
+# Allow vibrator HAL to read/write timed_output device
+allow hal_vibrator_default timed_output_device:chr_file rw_file_perms;
+

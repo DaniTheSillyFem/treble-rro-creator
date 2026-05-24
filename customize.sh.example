@@ -1,0 +1,61 @@
+#!/sbin/sh
+# =============================================================================
+# Treble Overlay — KSU/Magisk Module Install Script
+# =============================================================================
+# Runs during module installation to set correct permissions and
+# SELinux contexts for all files in the module.
+#
+# Vendor HAL sections are conditional — if the files don't exist
+# (because the user didn't include them), they're skipped gracefully.
+# This means the module works as a "pure overlay only" or with
+# extra vendor HALs depending on what's in system/vendor/.
+# =============================================================================
+
+MODPATH=${0%/*}
+
+ui_print "  Installing ${MODPATH##*/}..."
+
+# ── Overlay APKs ──────────────────────────────────────────────────────────
+# Set permissions for overlay APKs in /system/product/overlay/
+set_perm_recursive $MODPATH/system/product/overlay 0 0 0644 u:object_r:system_file:s0
+
+# ── Fingerprint HAL (optional) ────────────────────────────────────────────
+# v2.3 AOSP wrapper for Goodix ET715 UDFPS sensor (if included)
+if [ -f "$MODPATH/system/vendor/bin/hw/android.hardware.biometrics.fingerprint@2.3-service.samsung" ]; then
+    set_perm $MODPATH/system/vendor/bin/hw/android.hardware.biometrics.fingerprint@2.3-service.samsung 0 2000 0755 u:object_r:hal_fingerprint_default_exec:s0
+    ui_print "  • Fingerprint HAL binary: android.hardware.biometrics.fingerprint@2.3-service.samsung"
+fi
+
+# Fingerprint shared libraries (optional)
+if [ -d "$MODPATH/system/vendor/lib64" ]; then
+    for lib in $MODPATH/system/vendor/lib64/*.so; do
+        [ -f "$lib" ] && set_perm "$lib" 0 0 0644 u:object_r:vendor_file:s0
+    done
+    ui_print "  • Fingerprint shared libraries set"
+fi
+
+# ── Vibrator HAL (optional) ──────────────────────────────────────────────
+# Samsung proprietary vibrator HAL (sec-vibrator-2-2)
+if [ -f "$MODPATH/system/vendor/bin/hw/vendor.samsung.hardware.vibrator@2.2-service" ]; then
+    set_perm $MODPATH/system/vendor/bin/hw/vendor.samsung.hardware.vibrator@2.2-service 0 2000 0755 u:object_r:hal_vibrator_default_exec:s0
+    ui_print "  • Vibrator HAL binary: vendor.samsung.hardware.vibrator@2.2-service"
+fi
+
+# ── Init .rc files (optional) ────────────────────────────────────────────
+if [ -d "$MODPATH/system/vendor/etc/init" ]; then
+    for rc in $MODPATH/system/vendor/etc/init/*.rc; do
+        [ -f "$rc" ] && set_perm "$rc" 0 0 0644 u:object_r:vendor_configs_file:s0
+    done
+    ui_print "  • Init .rc files set ($(ls $MODPATH/system/vendor/etc/init/*.rc 2>/dev/null | wc -l) files)"
+fi
+
+# ── VINTF manifest fragments (optional) ──────────────────────────────────
+if [ -d "$MODPATH/system/vendor/etc/vintf/manifest" ]; then
+    for xml in $MODPATH/system/vendor/etc/vintf/manifest/*.xml; do
+        [ -f "$xml" ] && set_perm "$xml" 0 0 0644 u:object_r:vendor_configs_file:s0
+    done
+    ui_print "  • VINTF manifest files set ($(ls $MODPATH/system/vendor/etc/vintf/manifest/*.xml 2>/dev/null | wc -l) files)"
+fi
+
+# ── Done ─────────────────────────────────────────────────────────────────
+ui_print "  ✓ Module installed successfully!"
