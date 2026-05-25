@@ -1,0 +1,305 @@
+#!/bin/bash
+# =============================================================================
+# Treble Overlay Creator — Build Tools Setup
+# =============================================================================
+# Installs aapt2, zipalign, apksigner, and framework-res.apk so you can
+# build overlays. Supports multiple methods:
+#
+#   Method 1 — Package manager (recommended):
+#     Debian/Ubuntu: sudo apt install aapt android-sdk-build-tools apksigner
+#                                 android-framework-res
+#
+#   Method 2 — Manual download into tools/ (no root needed):
+#     Script downloads aapt2 from Google Maven and guides you for the rest.
+#
+# Usage:
+#   ./setup.sh
+#
+# =============================================================================
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+TOOLS_DIR="${SCRIPT_DIR}/tools"
+
+# Colors
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
+ok()   { echo -e "  ${GREEN}✓${NC} $*"; }
+info() { echo -e "  ${YELLOW}→${NC} $*"; }
+err()  { echo -e "  ${RED}✗${NC} $*"; }
+
+echo ""
+echo -e "${BOLD}  ╔══════════════════════════════════════════════════════╗${NC}"
+echo -e "${BOLD}  ║      Treble Overlay — Build Tools Setup             ║${NC}"
+echo -e "${BOLD}  ╚══════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# ─────────────────────────────────────────────────────────────────────────
+# Step 1: Check what's already available
+# ─────────────────────────────────────────────────────────────────────────
+echo -e "${BOLD}  Checking available tools...${NC}"
+echo ""
+
+MISSING=""
+
+check_tool() {
+    local name="$1"
+    if command -v "$name" &>/dev/null; then
+        local path
+        path=$(command -v "$name")
+        ok "$name found in PATH: $path"
+        return 0
+    elif [ -x "${TOOLS_DIR}/${name}" ]; then
+        ok "$name found in tools/"
+        return 0
+    else
+        err "$name not found"
+        MISSING="$MISSING $name"
+        return 1
+    fi
+}
+
+check_tool aapt2
+check_tool zipalign
+check_tool apksigner
+
+# Check framework-res.apk
+if [ -f "/usr/share/android-framework-res/framework-res.apk" ]; then
+    ok "framework-res.apk found at /usr/share/android-framework-res/framework-res.apk"
+elif [ -f "${TOOLS_DIR}/framework-res.apk" ]; then
+    ok "framework-res.apk found in tools/"
+else
+    err "framework-res.apk not found"
+    MISSING="$MISSING framework-res.apk"
+fi
+
+if [ -z "$MISSING" ]; then
+    echo ""
+    ok "All tools are available! You're ready to build."
+    echo ""
+    echo "  Run: ./build.sh"
+    echo ""
+    exit 0
+fi
+
+# ─────────────────────────────────────────────────────────────────────────
+# Step 2: Package manager method (Debian/Ubuntu)
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}  Missing:${NC}$MISSING"
+echo ""
+
+if command -v apt &>/dev/null; then
+    echo -e "${BOLD}  Debian/Ubuntu detected.${NC}"
+    echo "  The easiest way is to install via apt (requires sudo)."
+    echo ""
+    echo -e "  ${YELLOW}Install via apt? [y/N]${NC}"
+    read -r INSTALL_APT
+
+    if [[ "$INSTALL_APT" =~ ^[Yy]$ ]]; then
+        echo ""
+        info "Running: sudo apt update && sudo apt install -y \\"
+        echo "         aapt android-sdk-build-tools apksigner android-framework-res"
+        echo ""
+        sudo apt update
+        sudo apt install -y aapt android-sdk-build-tools apksigner android-framework-res
+
+        # Re-check what's now available
+        echo ""
+        echo -e "${BOLD}  Verifying installation...${NC}"
+        echo ""
+        check_tool aapt2
+        check_tool zipalign
+        check_tool apksigner
+
+        if [ -f "/usr/share/android-framework-res/framework-res.apk" ]; then
+            ok "framework-res.apk installed"
+        fi
+
+        if command -v aapt2 &>/dev/null && command -v zipalign &>/dev/null && \
+           command -v apksigner &>/dev/null && [ -f "/usr/share/android-framework-res/framework-res.apk" ]; then
+            echo ""
+            ok "All tools installed via apt! Ready to build."
+            echo ""
+            echo "  Run: ./build.sh"
+            echo ""
+            exit 0
+        else
+            echo ""
+            info "Some tools still missing after apt — falling back to manual download."
+        fi
+    fi
+fi
+
+# ─────────────────────────────────────────────────────────────────────────
+# Step 3: Manual download into tools/
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}  Manual download into tools/ directory${NC}"
+echo ""
+
+mkdir -p "${TOOLS_DIR}"
+
+# --- aapt2 ---
+if ! command -v aapt2 &>/dev/null && ! [ -x "${TOOLS_DIR}/aapt2" ]; then
+    echo ""
+    info "Downloading aapt2 from Google Maven..."
+    echo ""
+
+    # Get latest version from Maven metadata
+    AAPT2_VERSION=$(curl -sL "https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/maven-metadata.xml" \
+        | grep -oP '<release>\K[^<]+' || echo "")
+
+    if [ -z "$AAPT2_VERSION" ]; then
+        # Fallback to known working version
+        AAPT2_VERSION="9.3.0-alpha07-15228143"
+        info "Could not determine latest version, using: ${AAPT2_VERSION}"
+    else
+        ok "Latest aapt2 version: ${AAPT2_VERSION}"
+    fi
+
+    echo ""
+    echo -e "  ${YELLOW}Downloading...${NC}"
+
+    AAPT2_URL="https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/${AAPT2_VERSION}/aapt2-${AAPT2_VERSION}-linux.jar"
+    curl -sL "$AAPT2_URL" -o /tmp/aapt2-download.jar
+
+    # Extract aapt2 binary from the JAR (which is a ZIP containing the native binary)
+    cd "${TOOLS_DIR}"
+    unzip -o /tmp/aapt2-download.jar aapt2 2>/dev/null || {
+        # Some versions may have different structure
+        unzip -o /tmp/aapt2-download.jar 2>/dev/null
+    }
+    chmod +x "${TOOLS_DIR}/aapt2" 2>/dev/null || true
+    rm -f /tmp/aapt2-download.jar
+    cd "${SCRIPT_DIR}"
+
+    if [ -x "${TOOLS_DIR}/aapt2" ]; then
+        ok "aapt2 installed to tools/ ($(du -sh "${TOOLS_DIR}/aapt2" | cut -f1))"
+    else
+        err "Failed to extract aapt2 from JAR"
+    fi
+fi
+
+# --- zipalign & apksigner (via Android SDK command-line tools) ---
+if ! command -v zipalign &>/dev/null && ! [ -x "${TOOLS_DIR}/zipalign" ]; then
+    echo ""
+    info "zipalign not found."
+
+    # Check if Java is available for sdkmanager
+    if command -v java &>/dev/null; then
+        echo -e "  ${YELLOW}→${NC} Java found — can use Android SDK command-line tools to get zipalign + apksigner."
+        echo ""
+
+        if [ ! -d "${TOOLS_DIR}/cmdline-tools" ]; then
+            echo -e "  ${YELLOW}Downloading Android command-line tools...${NC}"
+            curl -sL "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" \
+                -o /tmp/cmdline-tools.zip
+            unzip -q /tmp/cmdline-tools.zip -d "${TOOLS_DIR}/"
+            rm -f /tmp/cmdline-tools.zip
+            ok "Command-line tools downloaded"
+        fi
+
+        SDKMANAGER="${TOOLS_DIR}/cmdline-tools/bin/sdkmanager"
+
+        if [ -f "$SDKMANAGER" ]; then
+            echo "  Installing build-tools (requires accepting license)..."
+            echo ""
+            echo -e "  ${YELLOW}You may need to accept the Android SDK license.${NC}"
+            echo -e "  ${YELLOW}Type 'y' when prompted.${NC}"
+            echo ""
+            yes | "$SDKMANAGER" --sdk_root="${TOOLS_DIR}/android-sdk" "build-tools;35.0.0" 2>/dev/null || \
+                "$SDKMANAGER" --sdk_root="${TOOLS_DIR}/android-sdk" "build-tools;35.0.0" || true
+
+            # Find installed build-tools
+            BT_DIR=$(ls -d "${TOOLS_DIR}/android-sdk/build-tools/"* 2>/dev/null | head -1)
+            if [ -n "$BT_DIR" ]; then
+                for bt_tool in zipalign apksigner; do
+                    if [ -f "${BT_DIR}/${bt_tool}" ]; then
+                        ln -sf "${BT_DIR}/${bt_tool}" "${TOOLS_DIR}/${bt_tool}" 2>/dev/null || \
+                            cp "${BT_DIR}/${bt_tool}" "${TOOLS_DIR}/" 2>/dev/null || true
+                        chmod +x "${TOOLS_DIR}/${bt_tool}" 2>/dev/null || true
+                    fi
+                done
+                ok "zipalign and apksigner installed from build-tools"
+
+                # Also try to get framework-res.apk from platforms
+                echo "  Installing platform SDK for framework-res.apk..."
+                yes | "$SDKMANAGER" --sdk_root="${TOOLS_DIR}/android-sdk" "platforms;android-35" 2>/dev/null || true
+                PLATFORM_DIR=$(ls -d "${TOOLS_DIR}/android-sdk/platforms/"* 2>/dev/null | head -1)
+                if [ -n "$PLATFORM_DIR" ] && [ -f "${PLATFORM_DIR}/data/res/framework-res.apk" ]; then
+                    cp "${PLATFORM_DIR}/data/res/framework-res.apk" "${TOOLS_DIR}/"
+                    ok "framework-res.apk extracted from platform SDK"
+                fi
+            else
+                info "Build-tools installation may have been skipped or failed."
+                info "Try running manually: ${SDKMANAGER} --sdk_root=\"${TOOLS_DIR}/android-sdk\" \"build-tools;35.0.0\""
+            fi
+        fi
+    else
+        echo -e "  ${YELLOW}→${NC} Java not found, so sdkmanager won't work."
+        echo -e "  ${YELLOW}→${NC} Option 1: Install Java, then re-run setup.sh"
+        echo -e "  ${YELLOW}→${NC} Option 2: Install via your distro's package manager"
+        echo ""
+        if command -v pacman &>/dev/null; then
+            echo "    Arch:       sudo pacman -S jdk17-openjdk android-tools"
+        elif command -v dnf &>/dev/null; then
+            echo "    Fedora:     sudo dnf install java-17-openjdk"
+        elif command -v brew &>/dev/null; then
+            echo "    macOS:      brew install openjdk"
+        fi
+        echo ""
+        info "Then re-run ./setup.sh"
+    fi
+fi
+
+# --- framework-res.apk ---
+if [ ! -f "/usr/share/android-framework-res/framework-res.apk" ] && [ ! -f "${TOOLS_DIR}/framework-res.apk" ]; then
+    echo ""
+    echo -e "${BOLD}  framework-res.apk${NC}"
+    echo ""
+    echo "  This is needed by aapt2 to link the overlay APK."
+    echo "  Options to get it:"
+    echo ""
+    echo "    1. Extract from your device via ADB (recommended — matches your GSI):"
+    echo "       adb pull /system/framework/framework-res.apk tools/"
+    echo ""
+    echo "    2. Debian/Ubuntu:"
+    echo "       sudo apt install android-framework-res"
+    echo "       (Already attempted above if on Debian/Ubuntu)"
+    echo ""
+    echo "    3. From Android SDK platform (via sdkmanager):"
+    echo "       ./tools/cmdline-tools/bin/sdkmanager --sdk_root=tools/android-sdk \"platforms;android-35\""
+    echo "       cp tools/android-sdk/platforms/android-35/data/res/framework-res.apk tools/"
+    echo ""
+fi
+
+# ─────────────────────────────────────────────────────────────────────────
+# Summary
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}  ╔══════════════════════════════════════════════════════╗${NC}"
+echo -e "${BOLD}  ║                  Setup Complete                     ║${NC}"
+echo -e "${BOLD}  ╚══════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+FINAL_MISSING=""
+command -v aapt2 &>/dev/null || [ -x "${TOOLS_DIR}/aapt2" ] || FINAL_MISSING="$FINAL_MISSING aapt2"
+command -v zipalign &>/dev/null || [ -x "${TOOLS_DIR}/zipalign" ] || FINAL_MISSING="$FINAL_MISSING zipalign"
+command -v apksigner &>/dev/null || [ -x "${TOOLS_DIR}/apksigner" ] || FINAL_MISSING="$FINAL_MISSING apksigner"
+[ -f "/usr/share/android-framework-res/framework-res.apk" ] || [ -f "${TOOLS_DIR}/framework-res.apk" ] || FINAL_MISSING="$FINAL_MISSING framework-res.apk"
+
+if [ -z "$FINAL_MISSING" ]; then
+    ok "All tools ready!"
+    echo ""
+    echo "  Run: ./build.sh"
+    echo ""
+else
+    echo -e "  ${YELLOW}Still missing:${NC}$FINAL_MISSING"
+    echo ""
+    echo "  See vendor_extraction_guide.md for detailed instructions."
+    echo "  Or re-run: ./setup.sh"
+    echo ""
+fi

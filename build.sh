@@ -19,12 +19,27 @@
 # Usage: ./build.sh
 #
 # Requirements: aapt2, zipalign, apksigner, framework-res.apk
-#   Debian/Ubuntu: sudo apt install android-sdk-ext4-utils android-framework-res apksigner
+#
+# Quick setup:
+#   ./setup.sh                    # Auto-downloads/installs everything
+#
+# Or manually (Debian/Ubuntu):
+#   sudo apt install aapt android-sdk-build-tools apksigner android-framework-res
+#
+# Or manually (other distros):
+#   See vendor_extraction_guide.md for platform-specific instructions
 # =============================================================================
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+
+# ── Local tools directory support ──────────────────────────────────────────
+# If tools/ exists, prepend to PATH so aapt2, zipalign, apksigner are found.
+# This allows setup.sh to install tools locally without sudo.
+if [ -d "${SCRIPT_DIR}/tools" ]; then
+    export PATH="${SCRIPT_DIR}/tools:${PATH}"
+fi
 
 # Colors
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
@@ -145,7 +160,6 @@ GENEOF
     cat >> "$gen" << GENEOF
     <dimen name="status_bar_height">${STATUS_BAR_HEIGHT}.0px</dimen>
     <dimen name="status_bar_height_portrait">${STATUS_BAR_HEIGHT}.0px</dimen>
-    <dimen name="quick_qs_offset_height">${STATUS_BAR_HEIGHT}.0px</dimen>
 
 GENEOF
 
@@ -569,9 +583,9 @@ if [ ! -f "$CONFIG_FILE" ]; then
 # Example reference: Samsung Galaxy A90 5G — see config.env.example
 # =============================================================================
 
-OVERLAY_NAME="treble-overlay-<your_device>"
-OVERLAY_PACKAGE="me.phh.treble.overlay.<your_device>"
-OVERLAY_PACKAGE_SYSTEMUI="me.phh.treble.overlay.<your_device>.systemui"
+OVERLAY_NAME="treble-overlay-<device_manufacturer>-<device_codename>"
+OVERLAY_PACKAGE="me.phh.treble.overlay.<device_codename>"
+OVERLAY_PACKAGE_SYSTEMUI="me.phh.treble.overlay.<device_codename>.systemui"
 DEVICE_PROP_NAME="ro.product.device"
 DEVICE_PROP_VALUE="<device_codename>"
 COMPILE_SDK_VERSION=36
@@ -580,12 +594,11 @@ MIN_SDK_VERSION=35
 TARGET_SDK_VERSION=35
 OVERLAY_PRIORITY=628
 OVERLAY_PRIORITY_SYSTEMUI=9999
-DEVICE_MANUFACTURER="<manufacturer>"
-DEVICE_MODEL="<model_name>"
-DEVICE_CODENAME="<codename>"
+DEVICE_MANUFACTURER="<device_manufacturer>"
+DEVICE_MODEL="<device_model>"
+DEVICE_CODENAME="<device_codename>"
 ROUNDED_CORNER_RADIUS=100
 STATUS_BAR_HEIGHT=76
-QS_OFFSET_HEIGHT=76
 HAS_UDFPS=false
 UDFPS_X=540
 UDFPS_Y=2145
@@ -625,74 +638,110 @@ fi
 
 source "$CONFIG_FILE"
 
-# Validate required values
+# Validate required values (should always be set, even if placeholders)
 [ -z "$OVERLAY_NAME" ] && { err "OVERLAY_NAME not set in config.env"; exit 1; }
 [ -z "$DEVICE_PROP_VALUE" ] && { err "DEVICE_PROP_VALUE not set in config.env"; exit 1; }
 
 # ---------------------------------------------------------------------------
-# Sanitize placeholder values
-# ---------------------------------------------------------------------------        _sanitized=false
-_safe_val() {
-    local v="$1" d="$2"
-    local c="${!v}"
-    # Check if value contains '<' (placeholder pattern like "<manufacturer>")
-    if [[ "$c" == *"<"* ]]; then
-        printf -v "$v" "%s" "$d"
-        _sanitized=true
+# Device identity check — only check the key codename values
+# ---------------------------------------------------------------------------
+# Identity variables that define WHICH device this overlay targets.
+IDENTITY_VARS=("OVERLAY_NAME" "OVERLAY_PACKAGE" "OVERLAY_PACKAGE_SYSTEMUI" \
+               "DEVICE_PROP_VALUE" "DEVICE_MANUFACTURER" "DEVICE_MODEL" "DEVICE_CODENAME")
+
+has_placeholder=false
+for var_name in "${IDENTITY_VARS[@]}"; do
+    val="${!var_name}"
+    if [[ "$val" == *"<"* ]]; then
+        has_placeholder=true
+        break
     fi
-    return 0
-}
+done
 
-_safe_val DEVICE_PROP_VALUE        "generic"
-_safe_val DEVICE_MANUFACTURER      "Generic"
-_safe_val DEVICE_MODEL             "Generic Device"
-_safe_val DEVICE_CODENAME          "generic"
-_safe_val LIGHT_SENSOR_TYPE        "android.sensor.light"
-_safe_val OVERLAY_NAME             "treble-overlay-generic"
-_safe_val OVERLAY_PACKAGE          "me.phh.treble.overlay.generic"
-_safe_val OVERLAY_PACKAGE_SYSTEMUI "me.phh.treble.overlay.generic.systemui"
+if $has_placeholder; then
+    echo ""
+    echo -e "  ${YELLOW}┌──────────────────────────────────────────────────────────┐${NC}"
+    echo -e "  ${YELLOW}│${NC}  ⚠  Device codename not configured yet!                ${YELLOW}│${NC}"
+    echo -e "  ${YELLOW}│${NC}                                                       ${YELLOW}│${NC}"
+    echo -e "  ${YELLOW}│${NC}  The following values still have placeholders:         ${YELLOW}│${NC}"
+    for var_name in "${IDENTITY_VARS[@]}"; do
+        val="${!var_name}"
+        if [[ "$val" == *"<"* ]]; then
+            printf "  ${YELLOW}│${NC}    %-30s = %-20s ${YELLOW}│${NC}\n" "$var_name" "$val"
+        fi
+    done
+    echo -e "  ${YELLOW}│${NC}                                                       ${YELLOW}│${NC}"
+    echo -e "  ${YELLOW}│${NC}  You need to edit config.env and set your device info. ${YELLOW}│${NC}"
+    echo -e "  ${YELLOW}└──────────────────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "  ${BOLD}[1]${NC} Generate with generic values (for quick testing only)"
+    echo -e "  ${BOLD}[2]${NC} Cancel and edit config.env"
+    echo ""
+    read -r -p "  Choose [1/2]: " placeholder_choice
 
-_safe_val COMPILE_SDK_VERSION      36
-_safe_val MIN_SDK_VERSION           35
-_safe_val TARGET_SDK_VERSION        35
-_safe_val OVERLAY_PRIORITY          628
-_safe_val OVERLAY_PRIORITY_SYSTEMUI 9999
-_safe_val ROUNDED_CORNER_RADIUS     100
-_safe_val STATUS_BAR_HEIGHT         76
-_safe_val UDFPS_X                   540
-_safe_val UDFPS_Y                   2145
-_safe_val UDFPS_RADIUS              114
-_safe_val DEFAULT_REFRESH_RATE      60
-_safe_val PEAK_REFRESH_RATE         60
-_safe_val BATTERY_CAPACITY          4000
-_safe_val BATTERY_TYPICAL_CAPACITY  4000
-_safe_val BRIGHTNESS_DIM            15
-_safe_val BRIGHTNESS_DARK           3
-_safe_val BRIGHTNESS_DOZE           60
-_safe_val BRIGHTNESS_DEFAULT        128
-_safe_val BRIGHTNESS_MIN            0
-_safe_val BRIGHTNESS_MAX            255
+    if [[ "$placeholder_choice" != "1" ]]; then
+        echo ""
+        echo -e "  ${YELLOW}→${NC} Edit config.env with your device's values, then re-run: ${BOLD}./build.sh${NC}"
+        echo ""
+        exit 0
+    fi
 
-_safe_val HAS_UDFPS                 false
-_safe_val HAS_SAMSUNG_FINGERPRINT   false
-_safe_val HAS_AUTO_BRIGHTNESS       true
-_safe_val HAS_AOD                   false
-_safe_val HAS_DOZE                  false
-_safe_val DOZE_SUSPEND_UNSUPPORTED  false
-_safe_val HAS_5G                    false
-_safe_val HAS_VOLTE                 false
-_safe_val HAS_BURN_IN_PROTECTION    false
-_safe_val HAS_DOUBLE_TAP_WAKE       false
-_safe_val HAS_VENDOR_FINGERPRINT_HAL false
-_safe_val HAS_VENDOR_VIBRATOR_HAL   false
+    echo ""
+    info "Using generic values for this build (placeholder -> safe default):"
+    echo ""
 
-if $_sanitized; then
-    echo -e ""
-    info "Placeholder values detected — using safe defaults for this build."
-    info "Edit config.env with your real device values for a production build."
-    echo -e ""
+    # Apply generic safe defaults for identity vars
+    [[ "${OVERLAY_NAME}" == *"<"* ]]             && OVERLAY_NAME="treble-overlay-generic"             && info "  OVERLAY_NAME         → treble-overlay-generic"
+    [[ "${OVERLAY_PACKAGE}" == *"<"* ]]           && OVERLAY_PACKAGE="me.phh.treble.overlay.generic"    && info "  OVERLAY_PACKAGE       → me.phh.treble.overlay.generic"
+    [[ "${OVERLAY_PACKAGE_SYSTEMUI}" == *"<"* ]] && OVERLAY_PACKAGE_SYSTEMUI="me.phh.treble.overlay.generic.systemui" && info "  OVERLAY_PACKAGE_SYS...→ me.phh.treble.overlay.generic.systemui"
+    [[ "${DEVICE_PROP_VALUE}" == *"<"* ]]         && DEVICE_PROP_VALUE="generic"                       && info "  DEVICE_PROP_VALUE     → generic"
+    [[ "${DEVICE_MANUFACTURER}" == *"<"* ]]       && DEVICE_MANUFACTURER="Generic"                     && info "  DEVICE_MANUFACTURER   → Generic"
+    [[ "${DEVICE_MODEL}" == *"<"* ]]              && DEVICE_MODEL="Generic Device"                     && info "  DEVICE_MODEL          → Generic Device"
+    [[ "${DEVICE_CODENAME}" == *"<"* ]]           && DEVICE_CODENAME="generic"                         && info "  DEVICE_CODENAME       → generic"
+
+    # Also handle LIGHT_SENSOR_TYPE since it commonly has a placeholder too
+    [[ "${LIGHT_SENSOR_TYPE}" == *"<"* ]]         && LIGHT_SENSOR_TYPE="android.sensor.light"           && info "  LIGHT_SENSOR_TYPE     → android.sensor.light"
+    echo ""
+    echo -e "  ${YELLOW}⚠  These are TEST values. Edit config.env for real device values.${NC}"
+    echo ""
+else
+    # All identity values are filled — show summary and confirm
+    echo ""
+    echo -e "  ${GREEN}┌──────────────────────────────────────────────────────────┐${NC}"
+    echo -e "  ${GREEN}│${NC}  Device configuration detected                       ${GREEN}│${NC}"
+    echo -e "  ${GREEN}└──────────────────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "  ${BOLD}Identity:${NC}"
+    echo "    Device:        ${DEVICE_MANUFACTURER} ${DEVICE_MODEL} (${DEVICE_CODENAME})"
+    echo "    Codename:      ${DEVICE_PROP_VALUE}"
+    echo "    Overlay:       ${OVERLAY_NAME}"
+    echo "    Package:       ${OVERLAY_PACKAGE}"
+    echo ""
+    echo -e "  ${BOLD}Display:${NC}"
+    echo "    Rounded corners: ${ROUNDED_CORNER_RADIUS}px"
+    echo "    Status bar:      ${STATUS_BAR_HEIGHT}px"
+    echo ""
+    echo -e "  ${BOLD}Features:${NC}"
+    echo "    UDFPS:           ${HAS_UDFPS}"
+    echo "    AOD:             ${HAS_AOD}"
+    echo "    Doze:            ${HAS_DOZE}"
+    echo "    5G:              ${HAS_5G}"
+    echo "    VoLTE:           ${HAS_VOLTE}"
+    echo ""
+    echo -e "  ${BOLD}Builder:${NC}"
+    echo "    Android:         ${ANDROID_VERSION} (API ${COMPILE_SDK_VERSION})"
+    echo ""
+    echo -e "  ${YELLOW}Are these values correct for your device?${NC}"
+    read -r -p "  [Y/n] " confirm_values
+
+    if [[ "$confirm_values" =~ ^[Nn] ]]; then
+        echo ""
+        echo -e "  ${YELLOW}→${NC} Edit config.env with the correct values, then re-run: ${BOLD}./build.sh${NC}"
+        echo ""
+        exit 0
+    fi
+    echo ""
 fi
-unset _safe_val _sanitized
 
 echo -e "${BOLD}"
 echo "  ╔══════════════════════════════════════════════════════╗"
@@ -749,13 +798,27 @@ fi
 # ---------------------------------------------------------------------------
 step "Checking dependencies"
 for cmd in aapt2 zipalign apksigner; do
-    command -v "$cmd" &>/dev/null || { err "Missing: $cmd — install it first"; exit 1; }
+    command -v "$cmd" &>/dev/null || { err "Missing: $cmd — run ./setup.sh first"; exit 1; }
 done
 ok "All tools found"
 
+# Determine PLATFORM_JAR location (check tools/ first, then system path)
 if [ ! -f "$PLATFORM_JAR" ]; then
-    err "Platform JAR not found at: $PLATFORM_JAR"
-    err "Install android-framework-res or update PLATFORM_JAR in config.env"
+    # Check if it's in the tools/ directory
+    if [ -f "${SCRIPT_DIR}/tools/framework-res.apk" ]; then
+        PLATFORM_JAR="${SCRIPT_DIR}/tools/framework-res.apk"
+    fi
+fi
+
+if [ ! -f "$PLATFORM_JAR" ]; then
+    err "Platform JAR not found."
+    err "Checked: config.env PLATFORM_JAR path"
+    err "Also checked: tools/framework-res.apk"
+    err ""
+    err "Install android-framework-res or pull from device:"
+    err "  adb pull /system/framework/framework-res.apk tools/"
+    err ""
+    err "Or run: ./setup.sh"
     exit 1
 fi
 ok "Platform JAR: ${PLATFORM_JAR}"
@@ -842,7 +905,7 @@ id=${OVERLAY_NAME}
 name=Treble Overlay — ${DEVICE_MANUFACTURER} ${DEVICE_MODEL}
 version=${OVERLAY_VERSION}
 versionCode=${OVERLAY_VERSION_CODE}
-author=(configure me)
+author=${DEVICE_MANUFACTURER}
 description=${DESCRIPTION}
 MODPROP
 ok "module.prop generated"

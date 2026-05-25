@@ -6,7 +6,18 @@
 -->
 <resources>
 
+    <bool name="config_dozeAlwaysOnDisplayAvailable">true</bool>
+
+    <bool name="config_dozeAfterScreenOffByDefault">true</bool>
+    <bool name="config_dozePulsePickup">true</bool>
+
     <bool name="config_automatic_brightness_available">true</bool>
+
+    <bool name="config_telephony5gNonStandalone">true</bool>
+
+    <bool name="config_device_volte_available">true</bool>
+    <bool name="config_device_vt_available">true</bool>
+    <bool name="config_device_wfc_ims_available">true</bool>
 
     <dimen name="rounded_corner_radius">100.0px</dimen>
     <dimen name="rounded_corner_radius_top">100.0px</dimen>
@@ -18,7 +29,6 @@
 
     <dimen name="status_bar_height">76.0px</dimen>
     <dimen name="status_bar_height_portrait">76.0px</dimen>
-    <dimen name="quick_qs_offset_height">76.0px</dimen>
 
     <string name="config_displayLightSensorType" translatable="false">android.sensor.light</string>
 

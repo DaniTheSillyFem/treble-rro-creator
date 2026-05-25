@@ -2,7 +2,7 @@
 <!--
     Dimensions — now controlled by config.env via generated.xml:
       - ROUNDED_CORNER_RADIUS → rounded_corner_radius, secondary_*, *_top, *_bottom
-      - STATUS_BAR_HEIGHT → status_bar_height, status_bar_height_portrait, quick_qs_offset_height
+      - STATUS_BAR_HEIGHT → status_bar_height, status_bar_height_portrait
     Edit config.env and re-build to change these values.
 -->
 <resources>

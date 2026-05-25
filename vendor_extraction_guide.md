@@ -1,5 +1,43 @@
 # Vendor HAL Extraction Guide
 
+## 🔧 Build Tools Quick Setup
+
+Before extracting vendor HALs or building the overlay, make sure you have the required build tools installed.
+
+### Method 1: Run the setup script (recommended — works on any distro)
+
+```bash
+./setup.sh
+```
+
+This downloads `aapt2`, `zipalign`, and `apksigner` into a local `tools/` directory and guides you on getting `framework-res.apk`. No root needed.
+
+### Method 2: Package manager (Debian/Ubuntu)
+
+```bash
+sudo apt install -y aapt android-sdk-build-tools apksigner android-framework-res
+```
+
+### Method 3: Manual download into tools/
+
+```bash
+# Create tools directory
+mkdir -p tools
+
+# Download aapt2 from Google Maven
+AAPT2_VER=$(curl -sL https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/maven-metadata.xml | grep -oP '<release>\K[^<]+')
+curl -sL "https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/${AAPT2_VER}/aapt2-${AAPT2_VER}-linux.jar" -o /tmp/aapt2.jar
+cd tools && unzip -o /tmp/aapt2.jar aapt2 && chmod +x aapt2 && cd ..
+
+# For zipalign + apksigner: need Java + Android SDK command-line tools
+# Download from: https://developer.android.com/studio#command-tools
+
+# Pull framework-res.apk from your device via ADB
+adb pull /system/framework/framework-res.apk tools/
+```
+
+---
+
 Some devices need proprietary vendor HAL (Hardware Abstraction Layer) binaries to make features like **fingerprint sensors**, **vibrators**, or **display hardware** work on a GSI. These binaries live in the vendor partition and are replaced when you flash a GSI — so we ship them inside the KSU module.
 
 > ⚠️ **⚠️ CRITICAL WARNING: BOOTLOOP RISK ⚠️**
@@ -408,6 +446,83 @@ This project has a well-structured file system for the vendor handling, PLEASE R
 
 ---
 
+## ⚙️ Power Profile (power_profile.xml)
+
+The `res/xml/power_profile.xml` file tells Android's battery stats service how much power each hardware component uses. This determines the "Battery usage" estimates in Settings.
+
+### What power_profile.xml contains
+
+- **CPU clusters** — core speeds and power draw per frequency step
+- **Screen** — power drain when on, at full brightness, and in ambient/doze mode
+- **Radio** — cellular modem power in active/idle/scanning states
+- **Wi-Fi/Bluetooth** — power drain for each radio
+- **Battery capacity** — nominal and typical mAh
+
+### Why you need a device-specific one
+
+The default AOSP `power_profile.xml` has **generic/dummy values** that give inaccurate battery estimates. A profile from your actual device (or a device with the same SoC + battery) will be much more accurate. **If you don't provide one, the GSI's default is used — it won't crash anything, just show inaccurate stats.**
+
+### How to get your device's power_profile
+
+#### Method A: Extract from a running device (easiest)
+
+```bash
+# Pull the framework-res APK from your device
+adb pull /system/framework/framework-res.apk
+
+# Unzip and extract the power profile
+unzip framework-res.apk res/xml/power_profile.xml
+cp res/xml/power_profile.xml /path/to/your/project/res/xml/power_profile.xml
+```
+
+This gives you the EXACT power profile that your stock firmware uses.
+
+#### Method B: Get from device tree source (for custom ROMs)
+
+```bash
+# In your device tree (e.g., device/google/raven/):
+cat device/google/raven/overlay/frameworks/base/core/res/res/xml/power_profile.xml
+```
+
+This is the overlay your device tree ships. Often more up-to-date than the running device.
+
+#### Method C: Borrow from a device with the same SoC
+
+If you can't extract from your device, search for a device tree with the **same SoC** (e.g., Snapdragon 888, Exynos 2200, Dimensity 8100). Key indicators of a matching profile:
+
+| SoC | CPU cluster layout | Look for devices with |
+|-----|-------------------|----------------------|
+| Snapdragon 855 | 1+3+4 (1×A76@2.84GHz + 3×A76@2.42GHz + 4×A55@1.78GHz) | SM8150 devices |
+| Snapdragon 8 Gen 2 | 1+2+2+3 | SM8550 devices |
+| Dimensity 9000 | 1+3+4 (1×X2@3.05GHz + 3×A710@2.85GHz + 4×A510@1.8GHz) | MT6983 devices |
+| Exynos 2200 | 1+3+4 (1×X2 + 3×A710 + 4×A510) | S911B / S916B devices |
+
+Search GitHub for device trees matching your SoC:
+```
+# Example: find Snapdragon 865+ devices with power profiles
+https://github.com/search?q=power_profile.xml+SM8250&type=code
+```
+
+### What to customize in power_profile.xml
+
+| Item | How to find your value |
+|------|----------------------|
+| `battery.capacity` | `adb shell dumpsys batteryproperties \| grep "nominal"` or check battery spec |
+| `screen.on` / `screen.full` | Approximate: 50-100mA for AMOLED-on, 200-600mA for full brightness LCD |
+| CPU cluster counts & speeds | Check CPU info: `adb shell cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq` |
+| Radio power | Keep defaults unless you have exact measurements |
+
+### If you can't find a matching profile
+
+Just leave the current one (Snapdragon 855) as a baseline or delete the file entirely:
+```bash
+rm res/xml/power_profile.xml
+```
+
+Without it, Android falls back to conservative default estimates. Battery stats won't be perfect but the device will work fine.
+
+---
+
 ## ⚠️ Safety Notes
 
 1. **Always keep a backup** of your working module before adding vendor HALs
@@ -416,7 +531,7 @@ This project has a well-structured file system for the vendor handling, PLEASE R
    ```bash
    adb reboot recovery
    adb shell mount /data
-   adb shell rm -rf /data/adb/modules/treble-overlay-<your_device>
+   adb shell rm -rf /data/adb/modules/treble-overlay-<device_manufacturer>-<device_codename>
    adb shell reboot
    ```
 4. **VINTF manifest fragments from the wrong device can cause HAL manager crashes** — only use fragments from your exact device model and firmware version.

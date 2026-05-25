@@ -42,17 +42,37 @@ All device-specific settings are in **[`config.env`](config.env)** — edit that
 
 ### Prerequisites
 
-```bash
-# Debian/Ubuntu
-sudo apt install android-sdk-ext4-utils android-framework-res apksigner
+**Quickest way** — run the setup script (downloads tools locally, no root needed):
 
-# Or from Android SDK / platform-tools:
-#   aapt2, zipalign, apksigner
+```bash
+./setup.sh
 ```
 
-You also need the **Android framework-res APK** for compilation:
-- `/usr/share/android-framework-res/framework-res.apk` (default, from `android-framework-res` package)
-- Or copy/symlink one extracted from your system/vendor image
+Or install via your package manager:
+
+```bash
+# ── Debian / Ubuntu / Linux Mint ──
+sudo apt install -y aapt android-sdk-build-tools apksigner android-framework-res
+
+# ── Arch Linux / Manjaro (via AUR) ──
+yay -S android-sdk-build-tools android-sdk-platform-tools
+# Or use sdkmanager:
+#   ./tools/cmdline-tools/bin/sdkmanager --sdk_root=tools/android-sdk "build-tools;35.0.0"
+
+# ── Fedora / RHEL ──
+# No official packages — use sdkmanager:
+#   ./tools/cmdline-tools/bin/sdkmanager --sdk_root=tools/android-sdk "build-tools;35.0.0"
+
+# ── macOS (Homebrew) ──
+brew install --cask android-platform-tools
+# Then use sdkmanager for build-tools:
+#   ./tools/cmdline-tools/bin/sdkmanager --sdk_root=tools/android-sdk "build-tools;35.0.0"
+```
+
+You also need the **Android framework-res APK** for compilation (setup.sh handles this):
+- **Option 1:** `sudo apt install android-framework-res` (Debian/Ubuntu)
+- **Option 2:** Pull from your device: `adb pull /system/framework/framework-res.apk tools/`
+- **Option 3:** From Android SDK: `./tools/cmdline-tools/bin/sdkmanager --sdk_root=tools/android-sdk "platforms;android-35"`
 
 ### Build
 
