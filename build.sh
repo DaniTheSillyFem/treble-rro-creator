@@ -909,6 +909,23 @@ author=${DEVICE_MANUFACTURER}
 description=${DESCRIPTION}
 MODPROP
 ok "module.prop generated"
+info "Generating Android.mk"
+cat > Android.mk << ANDROIDMK
+LOCAL_PATH := \$(call my-dir)
+include \$(CLEAR_VARS)
+
+LOCAL_MODULE := ${OVERLAY_NAME}
+LOCAL_MODULE_TAGS := optional
+LOCAL_SRC_FILES := ${OVERLAY_NAME}.apk
+LOCAL_MODULE_CLASS := APPS
+LOCAL_CERTIFICATE := platform
+LOCAL_MODULE_OWNER := ${DEVICE_MANUFACTURER}
+LOCAL_DEX_PREOPT := false
+LOCAL_MODULE_PATH := \$(TARGET_OUT_PRODUCT)/overlay
+
+include \$(BUILD_PREBUILT)
+ANDROIDMK
+ok "Android.mk generated"
 
 # ---------------------------------------------------------------------------
 # Clean
