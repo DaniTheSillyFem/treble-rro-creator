@@ -126,6 +126,14 @@ GENEOF
     <bool name="config_supportDoubleTapWake">true</bool>
 
 GENEOF
+    if [ "$HAS_HBM" = "true" ]; then
+        cat >> "$gen" << GENEOF
+    <bool name="config_dynamic_automatic_brightness_available">true</bool>
+    <integer name="config_screenBrightnessExtendedMaximum">${BRIGHTNESS_EXTENDED_MAXIMUM}</integer>
+
+GENEOF
+    fi
+
     fi
 
     if [ "$HAS_5G" = "true" ]; then
@@ -389,6 +397,103 @@ done 2>/dev/null || true
 
 SERVEOF
         fi
+    fi
+
+    # ── SECTION 6: Samsung FOD (Fingerprint on Display) enable ───────────────
+    if [ "$HAS_SAMSUNG_FOD" = "true" ]; then
+        cat >> "$target/service.sh" << 'SERVEOF'
+# ═══════════════════════════════════════════════════════════════════════════
+# SECTION 6: Samsung FOD (Fingerprint on Display) enable
+# ═══════════════════════════════════════════════════════════════════════════
+# Enables FOD mode on the TSP (Touch Screen Panel). The TSP driver lights
+# up the sensor area when the fingerprint HAL activates. Without this,
+# the sensor area stays dark and UDFPS will not work.
+
+TSP_SYS="/sys/class/sec/tsp/cmd"
+if [ -f "$TSP_SYS" ]; then
+    chmod 0660 "$TSP_SYS" 2>/dev/null || true
+    if echo "fod_enable,1" > "$TSP_SYS" 2>/dev/null; then
+        log -t "treble-overlay" "  ✓ FOD enabled via $TSP_SYS" || true
+        setprop persist.sys.phh.fod_enabled 1
+    else
+        log -t "treble-overlay" "  ✗ Failed to write FOD enable (SELinux?)" || true
+    fi
+else
+    log -t "treble-overlay" "  - TSP sysfs not found at $TSP_SYS" || true
+fi
+
+SERVEOF
+    fi
+
+    # ── SECTION 7: Samsung Vibrator HAL start ────────────────────────────────
+    if [ "$HAS_SAMSUNG_VIBRATOR" = "true" ]; then
+        cat >> "$target/service.sh" << 'SERVEOF'
+# ═══════════════════════════════════════════════════════════════════════════
+# SECTION 7: Samsung Vibrator HAL — start existing vendor service
+# ═══════════════════════════════════════════════════════════════════════════
+# Stock Samsung vendor has vibrator HAL at:
+#   /vendor/bin/hw/vendor.samsung.hardware.vibrator@2.2-service
+# Service name: sec-vibrator-2-2 (defined in vendor/etc/init/*.rc)
+
+VIB_SERVICE="sec-vibrator-2-2"
+
+if [ -n "$(getprop init.svc.$VIB_SERVICE 2>/dev/null)" ]; then
+    if [ "$(getprop init.svc.$VIB_SERVICE)" != "running" ]; then
+        log -t "treble-overlay" "  Starting: $VIB_SERVICE" || true
+        start $VIB_SERVICE 2>/dev/null || true
+        sleep 1
+        if [ "$(getprop init.svc.$VIB_SERVICE)" = "running" ]; then
+            log -t "treble-overlay" "  ✓ Vibrator HAL started" || true
+            setprop persist.sys.phh.vibrator_started 1
+        else
+            log -t "treble-overlay" "  ✗ Vibrator HAL failed to start" || true
+        fi
+    else
+        log -t "treble-overlay" "  ✓ Vibrator HAL already running" || true
+        setprop persist.sys.phh.vibrator_started 1
+    fi
+fi
+
+SERVEOF
+    fi
+
+    # ── SECTION 8: Samsung device node permissions for fingerprint ───────────
+    if [ "$HAS_UDFPS" = "true" ]; then
+        cat >> "$target/service.sh" << 'SERVEOF'
+# ═══════════════════════════════════════════════════════════════════════════
+# SECTION 8: Samsung device node permissions for fingerprint
+# ═══════════════════════════════════════════════════════════════════════════
+# These are normally done by vendor/etc/init/fingerprint_common.rc
+# on the `on boot` trigger. On GSIs, we set them here to be safe.
+
+# Samsung ESFP (Exynos Security FingerPrint) device node
+if [ -e "/dev/esfp0" ]; then
+    chmod 0660 /dev/esfp0 2>/dev/null || true
+    chown system system /dev/esfp0 2>/dev/null || true
+fi
+
+# Goodix fingerprint device node
+if [ -e "/dev/goodix_fp" ]; then
+    chmod 0660 /dev/goodix_fp 2>/dev/null || true
+    chown system system /dev/goodix_fp 2>/dev/null || true
+fi
+
+# Sysfs fingerprint node ownership
+FP_SYSFS="/sys/class/fingerprint/fingerprint"
+if [ -d "$FP_SYSFS" ]; then
+    for node in type_check name vendor adm bfs_values position cbgecnt intcnt resetcnt wuhbtest rb; do
+        if [ -f "$FP_SYSFS/$node" ]; then
+            chown system radio "$FP_SYSFS/$node" 2>/dev/null || true
+        fi
+    done
+fi
+
+# Data directories for fingerprint template storage
+for dir in /data/vendor/misc /data/vendor/misc/qti_fp /data/vendor/misc/qti_fp/bg_estimation /data/vendor/misc/qti_fp/calib_test /data/vendor/misc/qti_fp/template /data/vendor/biometrics /data/vendor/fpSnrTest; do
+    [ -d "$dir" ] && chmod 0770 "$dir" 2>/dev/null || true
+done
+
+SERVEOF
     fi
 
     # ── SECTION 6: Connectivity (5G / VoLTE) ────────────────────────────────
