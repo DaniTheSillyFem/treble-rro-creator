@@ -54,11 +54,20 @@ check_tool() {
     elif [ -x "${TOOLS_DIR}/${name}" ]; then
         ok "$name found in tools/"
         return 0
-    else
-        err "$name not found"
-        MISSING="$MISSING $name"
-        return 1
+    elif [ -d "/opt/android-sdk/build-tools" ]; then
+        # Arch Linux /opt/android-sdk support
+        local sdk_tool
+        sdk_tool=$(find /opt/android-sdk/build-tools -name "$name" -type f -executable | sort -V | tail -n 1)
+        if [ -n "$sdk_tool" ]; then
+            ok "$name found in /opt/android-sdk: $sdk_tool"
+            mkdir -p "$TOOLS_DIR"
+            ln -sf "$sdk_tool" "${TOOLS_DIR}/${name}"
+            return 0
+        fi
     fi
+    err "$name not found"
+    MISSING="$MISSING $name"
+    return 1
 }
 
 check_tool aapt2
@@ -70,6 +79,18 @@ if [ -f "/usr/share/android-framework-res/framework-res.apk" ]; then
     ok "framework-res.apk found at /usr/share/android-framework-res/framework-res.apk"
 elif [ -f "${TOOLS_DIR}/framework-res.apk" ]; then
     ok "framework-res.apk found in tools/"
+elif [ -d "/opt/android-sdk/platforms" ]; then
+    # Arch Linux platform support
+    local sdk_res
+    sdk_res=$(find /opt/android-sdk/platforms -name "framework-res.apk" | head -n 1)
+    if [ -n "$sdk_res" ]; then
+        ok "framework-res.apk found in /opt/android-sdk: $sdk_res"
+        mkdir -p "$TOOLS_DIR"
+        ln -sf "$sdk_res" "${TOOLS_DIR}/framework-res.apk"
+    else
+        err "framework-res.apk not found"
+        MISSING="$MISSING framework-res.apk"
+    fi
 else
     err "framework-res.apk not found"
     MISSING="$MISSING framework-res.apk"
@@ -90,6 +111,13 @@ fi
 echo ""
 echo -e "${BOLD}  Missing:${NC}$MISSING"
 echo ""
+
+# Detect OS
+OS_ID=""
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS_ID=$ID
+fi
 
 if command -v apt &>/dev/null; then
     echo -e "${BOLD}  Debian/Ubuntu detected.${NC}"
@@ -129,6 +157,41 @@ if command -v apt &>/dev/null; then
         else
             echo ""
             info "Some tools still missing after apt — falling back to manual download."
+        fi
+    fi
+elif command -v pacman &>/dev/null || [[ "$OS_ID" == "arch" || "$ID_LIKE" == *"arch"* ]]; then
+    echo -e "${BOLD}  Arch Linux detected.${NC}"
+    echo "  Some tools are in AUR, but we can install the basics via pacman."
+    echo ""
+    echo -e "  ${YELLOW}Install basics (android-tools, jdk-openjdk) via pacman? [y/N]${NC}"
+    read -r INSTALL_PACMAN
+
+    if [[ "$INSTALL_PACMAN" =~ ^[Yy]$ ]]; then
+        echo ""
+        info "Running: sudo pacman -S --needed android-tools jdk-openjdk"
+        echo ""
+        sudo pacman -S --needed android-tools jdk-openjdk
+
+        # Re-check what's now available
+        echo ""
+        echo -e "${BOLD}  Verifying installation...${NC}"
+        echo ""
+        check_tool aapt2
+        check_tool zipalign
+        check_tool apksigner
+
+        if command -v aapt2 &>/dev/null && command -v zipalign &>/dev/null && \
+           command -v apksigner &>/dev/null; then
+            echo ""
+            ok "All tools installed via pacman! Ready to build."
+            echo ""
+            echo "  Run: ./build.sh"
+            echo ""
+            exit 0
+        else
+            echo ""
+            info "Some tools (like aapt2) still missing — falling back to manual download."
+            info "Step 3 will now use the Java we just installed to get the rest."
         fi
     fi
 fi
