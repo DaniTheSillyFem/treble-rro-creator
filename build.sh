@@ -912,6 +912,18 @@ if [ ! -f "$PLATFORM_JAR" ]; then
     # Check if it's in the tools/ directory
     if [ -f "${SCRIPT_DIR}/tools/framework-res.apk" ]; then
         PLATFORM_JAR="${SCRIPT_DIR}/tools/framework-res.apk"
+    elif [ -d "/data/data/com.termux" ] && [ ! -f "${SCRIPT_DIR}/tools/framework-res.apk" ]; then
+        # On Termux, try to pull it if missing
+        info "Running on Android (Termux) and framework-res.apk is missing."
+        info "Attempting to pull from /system/framework/framework-res.apk..."
+        mkdir -p "${SCRIPT_DIR}/tools"
+        if cp /system/framework/framework-res.apk "${SCRIPT_DIR}/tools/framework-res.apk" 2>/dev/null; then
+            PLATFORM_JAR="${SCRIPT_DIR}/tools/framework-res.apk"
+            ok "framework-res.apk auto-pulled successfully"
+        elif su -c "cp /system/framework/framework-res.apk \"${SCRIPT_DIR}/tools/framework-res.apk\"" 2>/dev/null; then
+            PLATFORM_JAR="${SCRIPT_DIR}/tools/framework-res.apk"
+            ok "framework-res.apk auto-pulled successfully (via su)"
+        fi
     fi
 fi
 

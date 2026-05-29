@@ -194,6 +194,57 @@ elif command -v pacman &>/dev/null || [[ "$OS_ID" == "arch" || "$ID_LIKE" == *"a
             info "Step 3 will now use the Java we just installed to get the rest."
         fi
     fi
+elif [ -d "/data/data/com.termux" ]; then
+    echo -e "${BOLD}  Termux (Android) detected.${NC}"
+    echo "  We can install all tools directly via pkg."
+    echo ""
+    echo -e "  ${YELLOW}Install via pkg? [y/N]${NC}"
+    read -r INSTALL_TERMUX
+
+    if [[ "$INSTALL_TERMUX" =~ ^[Yy]$ ]]; then
+        echo ""
+        info "Running: pkg install aapt2 apksigner android-tools openjdk-17"
+        echo ""
+        pkg install aapt2 apksigner android-tools openjdk-17
+
+        # Re-check what's now available
+        echo ""
+        echo -e "${BOLD}  Verifying installation...${NC}"
+        echo ""
+        check_tool aapt2
+        check_tool zipalign
+        check_tool apksigner
+
+        # For framework-res.apk in Termux, offering to pull from device
+        if [ ! -f "/usr/share/android-framework-res/framework-res.apk" ] && [ ! -f "${TOOLS_DIR}/framework-res.apk" ]; then
+            echo ""
+            info "Almost ready! We just need framework-res.apk."
+            echo "  Since you're on Android, I can pull it from your device (needs root/su)."
+            echo ""
+            echo -e "  ${YELLOW}Pull /system/framework/framework-res.apk? [y/N]${NC}"
+            read -r PULL_RES
+            if [[ "$PULL_RES" =~ ^[Yy]$ ]]; then
+                mkdir -p "${TOOLS_DIR}"
+                if cp /system/framework/framework-res.apk "${TOOLS_DIR}/framework-res.apk" 2>/dev/null; then
+                    ok "framework-res.apk pulled successfully"
+                elif su -c "cp /system/framework/framework-res.apk \"${TOOLS_DIR}/framework-res.apk\"" 2>/dev/null; then
+                    ok "framework-res.apk pulled successfully (via su)"
+                else
+                    err "Failed to pull framework-res.apk (permission denied)"
+                fi
+            fi
+        fi
+
+        if command -v aapt2 &>/dev/null && command -v zipalign &>/dev/null && \
+           command -v apksigner &>/dev/null && ([ -f "/usr/share/android-framework-res/framework-res.apk" ] || [ -f "${TOOLS_DIR}/framework-res.apk" ]); then
+            echo ""
+            ok "All tools ready in Termux! Ready to build."
+            echo ""
+            echo "  Run: ./build.sh"
+            echo ""
+            exit 0
+        fi
+    fi
 fi
 
 # ─────────────────────────────────────────────────────────────────────────
