@@ -195,10 +195,10 @@ case "$env_choice" in
     1)
         info "Debian/Ubuntu selected."
         info "Running: sudo apt update && sudo apt install -y \\"
-        echo "         aapt android-sdk-build-tools apksigner android-framework-res"
+        echo "         aapt android-sdk-build-tools apksigner android-framework-res zip"
         echo ""
         sudo apt update
-        sudo apt install -y aapt android-sdk-build-tools apksigner android-framework-res
+        sudo apt install -y aapt android-sdk-build-tools apksigner android-framework-res zip
 
         # Re-check tools
         check_tool aapt2
@@ -220,9 +220,9 @@ case "$env_choice" in
         ;;
     2)
         info "Arch Linux selected."
-        info "Running: sudo pacman -S --needed android-tools jdk-openjdk"
+        info "Running: sudo pacman -S --needed android-tools jdk-openjdk zip"
         echo ""
-        sudo pacman -S --needed android-tools jdk-openjdk
+        sudo pacman -S --needed android-tools jdk-openjdk zip
 
         # Re-check what's now available
         echo ""
@@ -249,9 +249,9 @@ case "$env_choice" in
         ;;
     3)
         info "Termux selected."
-        info "Running: pkg install aapt2 apksigner android-tools openjdk-17 unzip curl tsu"
+        info "Running: pkg install aapt2 apksigner android-tools openjdk-17 unzip zip curl tsu"
         echo ""
-        pkg install aapt2 apksigner android-tools openjdk-17 unzip curl tsu
+        pkg install aapt2 apksigner android-tools openjdk-17 unzip zip curl tsu
 
         # Re-check what's now available
         echo ""

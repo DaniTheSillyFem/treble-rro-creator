@@ -61,7 +61,7 @@ Building RROs on your phone is highly recommended.
    ```bash
    termux-setup-storage
    pkg update && pkg upgrade
-   pkg install git aapt2 apksigner android-tools openjdk-17 unzip curl tsu
+   pkg install git aapt2 apksigner android-tools openjdk-17 unzip zip curl tsu
    ```
 3. **Download Project:**
    ```bash
