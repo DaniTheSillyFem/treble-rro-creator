@@ -190,11 +190,11 @@ GENEOF
 GENEOF
 
     # Compute float equivalents (approximate)
-    local doze_float=$(echo "scale=8; $BRIGHTNESS_DOZE / 255" | bc 2>/dev/null || echo "0.23529412")
-    local dim_float=$(echo "scale=8; $BRIGHTNESS_DIM / 255" | bc 2>/dev/null || echo "0.050980393")
-    local min_float=$(echo "scale=8; $BRIGHTNESS_MIN / 255" | bc 2>/dev/null || echo "0.0")
-    local default_float=$(echo "scale=8; $BRIGHTNESS_DEFAULT / 255" | bc 2>/dev/null || echo "0.5019608")
-    local max_float=$(echo "scale=8; $BRIGHTNESS_MAX / 255" | bc 2>/dev/null || echo "1.0")
+    local doze_float=$(echo "scale=8; $BRIGHTNESS_DOZE / 255" | bc 2>/dev/null | sed 's/^\./0./' || echo "0.23529412")
+    local dim_float=$(echo "scale=8; $BRIGHTNESS_DIM / 255" | bc 2>/dev/null | sed 's/^\./0./' || echo "0.05098039")
+    local min_float=$(echo "scale=8; $BRIGHTNESS_MIN / 255" | bc 2>/dev/null | sed 's/^\./0./' || echo "0.0")
+    local default_float=$(echo "scale=8; $BRIGHTNESS_DEFAULT / 255" | bc 2>/dev/null | sed 's/^\./0./' || echo "0.50196078")
+    local max_float=$(echo "scale=8; $BRIGHTNESS_MAX / 255" | bc 2>/dev/null | sed 's/^\./0./' || echo "1.0")
 
     cat >> "$gen" << GENEOF
     <item name="config_screenBrightnessDozeFloat" format="float" type="dimen">${doze_float}</item>
@@ -854,10 +854,10 @@ echo "  ╔═══════════════════════
 echo "  ║           Treble Overlay Builder                     ║"
 echo "  ╚══════════════════════════════════════════════════════╝"
 echo -e "${NC}"
-echo "  Device:    ${BOLD}${DEVICE_MANUFACTURER} ${DEVICE_MODEL}${NC}"
-echo "  Codename:  ${DEVICE_CODENAME} (prop: ${DEVICE_PROP_NAME}=${DEVICE_PROP_VALUE})"
-echo "  Overlay:   ${OVERLAY_NAME}"
-echo "  Android:   ${ANDROID_VERSION} (API ${COMPILE_SDK_VERSION})"
+echo -e "  Device:    ${BOLD}${DEVICE_MANUFACTURER} ${DEVICE_MODEL}${NC}"
+echo -e "  Codename:  ${DEVICE_CODENAME} (prop: ${DEVICE_PROP_NAME}=${DEVICE_PROP_VALUE})"
+echo -e "  Overlay:   ${OVERLAY_NAME}"
+echo -e "  Android:   ${ANDROID_VERSION} (API ${COMPILE_SDK_VERSION})"
 
 # Store derived values
 OVERLAY_VERSION="1.0"
