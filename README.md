@@ -52,57 +52,55 @@ All device-specific settings are in **[`config.env`](config.env)** — edit that
 Or install via your package manager:
 
 ```bash
-# ── Termux (Android) Native Guide ──
-This tool is fully compatible with Android devices via Termux. 
+## 📱 Termux (Android) Master Guide
+Building RROs on your phone is highly recommended. 
 
-> ⚠️ **IMPORTANT:** Do NOT clone this repo to `/sdcard` or a shared folder. Android prevents script execution on shared storage. You **MUST** work in the Termux internal home directory.
+> ⚠️ **IMPORTANT:** Do NOT use `/sdcard`. You **MUST** clone to the internal home directory.
 
-1.  **Install Termux:** Use the [F-Droid version](https://f-droid.org/en/packages/com.termux/) for the latest updates.
-2.  **Setup storage access:**
-    ```bash
-    termux-setup-storage
-    ```
-3.  **Install dependencies:**
-    ```bash
-    pkg update && pkg upgrade
-    pkg install git aapt2 apksigner android-tools openjdk-17 unzip curl tsu
-    ```
-4.  **Clone the repo to internal storage:**
-    ```bash
-    cd ~
-    git clone https://github.com/your-username/treble-rro-creator
-    cd treble-rro-creator
-    ```
-5.  **Fix permissions and setup:**
-    ```bash
-    chmod +x *.sh
-    ./setup.sh
-    # Choose option 2, 3, or 4 in setup to download framework resources automatically.
-    ```
-6.  **Build:**
-    ```bash
-    ./build.sh
-    ```
-    *Final .zip will be in the project folder. You can move it to /sdcard/ to flash via Magisk/KSU.*
+1. **Install Termux:** [F-Droid version](https://f-droid.org/en/packages/com.termux/) is required for the latest build tools.
+2. **Setup:**
+   ```bash
+   termux-setup-storage
+   pkg update && pkg upgrade
+   pkg install git aapt2 apksigner android-tools openjdk-17 unzip curl tsu
+   ```
+3. **Download Project:**
+   ```bash
+   cd ~
+   git clone https://github.com/your-username/treble-rro-creator
+   cd treble-rro-creator
+   chmod +x *.sh
+   ```
+4. **Setup & Build:**
+   ```bash
+   ./setup.sh  # Choose Option 1 (Android 15) for best results
+   ./build.sh
+   ```
 
+---
+
+## 💻 PC Installation
+
+### Tools
+Install via your package manager:
+
+```bash
 # ── Debian / Ubuntu / Linux Mint ──
 sudo apt install -y aapt android-sdk-build-tools apksigner android-framework-res
 
-# ── Arch Linux / Manjaro (via AUR) ──
+# ── Arch Linux / Manjaro ──
 # Install basics: sudo pacman -S android-tools jdk-openjdk
-# Then run ./setup.sh to get aapt2/apksigner
+# Then run ./setup.sh to get aapt2/apksigner via local download or AUR
 ```
 
-You also need the **Android framework-res APK** (the "Resource Dictionary") for compilation:
-- **What is it?** It is a reference file that tells `aapt2` which resource IDs (like `android:dimen/rounded_corner_radius`) exist in the system. 
-- **Recommendation:** **Download from Google (Option 3 below)** is the most reliable. APKs pulled from devices are often "optimized" or "stripped," which can cause `aapt2` errors during the build.
+### Resource Dictionary (framework-res.apk)
+You need a reference file so `aapt2` can find system IDs. Pulled files from your phone often fail because they are "optimized" by the manufacturer.
 
-- **Option 1:** `sudo apt install android-framework-res` (Debian/Ubuntu)
-- **Option 2:** Pull from your device: `adb pull /system/framework/framework-res.apk tools/` (Not recommended)
-- **Option 3:** **Recommended:** Use `./setup.sh` to download the clean Google SDK platform (works on PC & Termux).
-- **Option 4:** Manual SDK download: `./tools/cmdline-tools/bin/sdkmanager --sdk_root=tools/android-sdk "platforms;android-35"`
+**Recommended:** Run `./setup.sh` and choose the **Download from Google** option. It works on both PC and Termux.
 
-### Build
+---
+
+## 🛠️ Build & Deploy
 
 ```bash
 # 1. Edit config.env with YOUR device's values

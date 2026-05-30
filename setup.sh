@@ -36,6 +36,60 @@ echo -e "${BOLD}  ║      Treble Overlay — Build Tools Setup             ║$
 echo -e "${BOLD}  ╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
 
+acquire_framework_res() {
+    if [ -f "/usr/share/android-framework-res/framework-res.apk" ] || [ -f "${TOOLS_DIR}/framework-res.apk" ]; then
+        return 0
+    fi
+
+    echo ""
+    info "Almost ready! We just need framework-res.apk (the resource dictionary)."
+    echo "  Options to get it:"
+    echo -e "    ${BOLD}[1]${NC} Download from Google (Android 15 SDK — ${GREEN}Recommended${NC})"
+    echo -e "    ${BOLD}[2]${NC} Download from Google (Android 16 Preview)"
+    echo -e "    ${BOLD}[3]${NC} Download from Google (Android 14 SDK)"
+    echo -e "    ${BOLD}[4]${NC} Pull from your device (${YELLOW}May fail on some GSIs/OEMs${NC})"
+    echo -e "    ${BOLD}[n]${NC} Skip for now"
+    echo ""
+    read -r -p "  Choose [1/2/3/4]: " res_choice
+
+    case "$res_choice" in
+        4)
+            mkdir -p "${TOOLS_DIR}"
+            info "Attempting to pull... note: if this fails to build later, use the Download option."
+            if cp /system/framework/framework-res.apk "${TOOLS_DIR}/framework-res.apk" 2>/dev/null; then
+                ok "framework-res.apk pulled successfully"
+            elif command -v su &>/dev/null && su -c "cp /system/framework/framework-res.apk \"${TOOLS_DIR}/framework-res.apk\"" 2>/dev/null; then
+                ok "framework-res.apk pulled successfully (via su)"
+            elif command -v adb &>/dev/null; then
+                info "Attempting to pull via ADB..."
+                if adb pull /system/framework/framework-res.apk "${TOOLS_DIR}/framework-res.apk" 2>/dev/null; then
+                    ok "framework-res.apk pulled via ADB"
+                else
+                    err "Failed to pull framework-res.apk"
+                fi
+            else
+                err "Failed to pull framework-res.apk (permission denied and no ADB/su found)"
+            fi
+            ;;
+        1|2|3)
+            mkdir -p "${TOOLS_DIR}"
+            local sdk_ver="35" # Default 15
+            [ "$res_choice" == "2" ] && sdk_ver="36"
+            [ "$res_choice" == "3" ] && sdk_ver="34"
+            
+            info "Downloading Android ${sdk_ver} platform SDK..."
+            curl -sL "https://dl.google.com/android/repository/platform-${sdk_ver}_r01.zip" -o /tmp/platform.zip || \
+            curl -sL "https://dl.google.com/android/repository/platform-${sdk_ver}_r02.zip" -o /tmp/platform.zip
+            
+            info "Extracting android.jar..."
+            unzip -j /tmp/platform.zip "*/android.jar" -d "${TOOLS_DIR}/"
+            mv "${TOOLS_DIR}/android.jar" "${TOOLS_DIR}/framework-res.apk"
+            rm -f /tmp/platform.zip
+            ok "Android ${sdk_ver} resources installed to tools/"
+            ;;
+    esac
+}
+
 # ─────────────────────────────────────────────────────────────────────────
 # Step 1: Check what's already available
 # ─────────────────────────────────────────────────────────────────────────
@@ -182,16 +236,15 @@ elif command -v pacman &>/dev/null || [[ "${OS_ID,,}" == "arch" || "${ID_LIKE,,}
 
         if command -v aapt2 &>/dev/null && command -v zipalign &>/dev/null && \
            command -v apksigner &>/dev/null; then
-            echo ""
-            ok "All tools installed via pacman! Ready to build."
-            echo ""
-            echo "  Run: ./build.sh"
-            echo ""
-            exit 0
-        else
-            echo ""
-            info "Some tools (like aapt2) still missing — falling back to manual download."
-            info "Step 3 will now use the Java we just installed to get the rest."
+            acquire_framework_res
+            if [ -f "/usr/share/android-framework-res/framework-res.apk" ] || [ -f "${TOOLS_DIR}/framework-res.apk" ]; then
+                echo ""
+                ok "All tools and resources ready! Ready to build."
+                echo ""
+                echo "  Run: ./build.sh"
+                echo ""
+                exit 0
+            fi
         fi
     fi
 elif [ -d "/data/data/com.termux" ]; then
@@ -203,9 +256,9 @@ elif [ -d "/data/data/com.termux" ]; then
 
     if [[ "$INSTALL_TERMUX" =~ ^[Yy]$ ]]; then
         echo ""
-        info "Running: pkg install aapt2 apksigner android-tools openjdk-17"
+        info "Running: pkg install aapt2 apksigner android-tools openjdk-17 unzip curl tsu"
         echo ""
-        pkg install aapt2 apksigner android-tools openjdk-17
+        pkg install aapt2 apksigner android-tools openjdk-17 unzip curl tsu
 
         # Re-check what's now available
         echo ""
@@ -215,49 +268,7 @@ elif [ -d "/data/data/com.termux" ]; then
         check_tool zipalign
         check_tool apksigner
 
-        # For framework-res.apk in Termux, offering to pull or download
-        if [ ! -f "/usr/share/android-framework-res/framework-res.apk" ] && [ ! -f "${TOOLS_DIR}/framework-res.apk" ]; then
-            echo ""
-            info "Almost ready! We just need framework-res.apk (the resource dictionary)."
-            echo "  Options for Termux:"
-            echo -e "    ${BOLD}[1]${NC} Download from Google (Android 15 SDK — ${GREEN}Recommended${NC})"
-            echo -e "    ${BOLD}[2]${NC} Download from Google (Android 16 Preview)"
-            echo -e "    ${BOLD}[3]${NC} Download from Google (Android 14 SDK)"
-            echo -e "    ${BOLD}[4]${NC} Pull from your device (${YELLOW}May fail on some GSIs/OEMs${NC})"
-            echo -e "    ${BOLD}[n]${NC} Skip for now"
-            echo ""
-            read -r -p "  Choose [1/2/3/4]: " termux_res_choice
-
-            case "$termux_res_choice" in
-                4)
-                    mkdir -p "${TOOLS_DIR}"
-                    info "Attempting to pull... note: if this fails to build later, use the Download option."
-                    if cp /system/framework/framework-res.apk "${TOOLS_DIR}/framework-res.apk" 2>/dev/null; then
-                        ok "framework-res.apk pulled successfully"
-                    elif su -c "cp /system/framework/framework-res.apk \"${TOOLS_DIR}/framework-res.apk\"" 2>/dev/null; then
-                        ok "framework-res.apk pulled successfully (via su)"
-                    else
-                        err "Failed to pull framework-res.apk"
-                    fi
-                    ;;
-                1|2|3)
-                    mkdir -p "${TOOLS_DIR}"
-                    local sdk_ver="35" # Default 15
-                    [ "$termux_res_choice" == "2" ] && sdk_ver="36"
-                    [ "$termux_res_choice" == "3" ] && sdk_ver="34"
-                    
-                    info "Downloading Android ${sdk_ver} platform SDK..."
-                    curl -sL "https://dl.google.com/android/repository/platform-${sdk_ver}_r01.zip" -o /tmp/platform.zip || \
-                    curl -sL "https://dl.google.com/android/repository/platform-${sdk_ver}_r02.zip" -o /tmp/platform.zip
-                    
-                    info "Extracting android.jar..."
-                    unzip -j /tmp/platform.zip "*/android.jar" -d "${TOOLS_DIR}/"
-                    mv "${TOOLS_DIR}/android.jar" "${TOOLS_DIR}/framework-res.apk"
-                    rm -f /tmp/platform.zip
-                    ok "Android ${sdk_ver} resources installed to tools/"
-                    ;;
-            esac
-        fi
+        acquire_framework_res
 
         if command -v aapt2 &>/dev/null && command -v zipalign &>/dev/null && \
            command -v apksigner &>/dev/null && ([ -f "/usr/share/android-framework-res/framework-res.apk" ] || [ -f "${TOOLS_DIR}/framework-res.apk" ]); then
@@ -393,26 +404,8 @@ if ! command -v zipalign &>/dev/null && ! [ -x "${TOOLS_DIR}/zipalign" ]; then
     fi
 fi
 
-# --- framework-res.apk ---
-if [ ! -f "/usr/share/android-framework-res/framework-res.apk" ] && [ ! -f "${TOOLS_DIR}/framework-res.apk" ]; then
-    echo ""
-    echo -e "${BOLD}  framework-res.apk${NC}"
-    echo ""
-    echo "  This is needed by aapt2 to link the overlay APK."
-    echo "  Options to get it:"
-    echo ""
-    echo "    1. Extract from your device via ADB (recommended — matches your GSI):"
-    echo "       adb pull /system/framework/framework-res.apk tools/"
-    echo ""
-    echo "    2. Debian/Ubuntu:"
-    echo "       sudo apt install android-framework-res"
-    echo "       (Already attempted above if on Debian/Ubuntu)"
-    echo ""
-    echo "    3. From Android SDK platform (via sdkmanager):"
-    echo "       ./tools/cmdline-tools/bin/sdkmanager --sdk_root=tools/android-sdk \"platforms;android-35\""
-    echo "       cp tools/android-sdk/platforms/android-35/data/res/framework-res.apk tools/"
-    echo ""
-fi
+# --- framework-res.apk fallback ---
+acquire_framework_res
 
 # ─────────────────────────────────────────────────────────────────────────
 # Summary
