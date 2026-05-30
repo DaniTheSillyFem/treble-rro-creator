@@ -51,7 +51,6 @@ All device-specific settings are in **[`config.env`](config.env)** — edit that
 
 Or install via your package manager:
 
-```bash
 ## 📱 Termux (Android) Master Guide
 Building RROs on your phone is highly recommended. 
 
@@ -67,7 +66,7 @@ Building RROs on your phone is highly recommended.
 3. **Download Project:**
    ```bash
    cd ~
-   git clone https://github.com/your-username/treble-rro-creator
+   git clone https://github.com/uzbforce/treble-rro-creator
    cd treble-rro-creator
    chmod +x *.sh
    ```
