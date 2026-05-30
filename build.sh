@@ -196,6 +196,14 @@ GENEOF
     local default_float=$(echo "scale=8; $BRIGHTNESS_DEFAULT / 255" | bc 2>/dev/null | sed 's/^\./0./' || echo "0.50196078")
     local max_float=$(echo "scale=8; $BRIGHTNESS_MAX / 255" | bc 2>/dev/null | sed 's/^\./0./' || echo "1.0")
 
+    # Ensure even the fallback/echo values have leading zeros (just in case sed fails)
+    [[ "$doze_float" == .* ]] && doze_float="0${doze_float}"
+    [[ "$dim_float" == .* ]] && dim_float="0${dim_float}"
+    [[ "$min_float" == .* ]] && min_float="0${min_float}"
+    [[ "$default_float" == .* ]] && default_float="0${default_float}"
+    [[ "$max_float" == .* ]] && max_float="0${max_float}"
+
+
     cat >> "$gen" << GENEOF
     <item name="config_screenBrightnessDozeFloat" format="float" type="dimen">${doze_float}</item>
     <item name="config_screenBrightnessDimFloat" format="float" type="dimen">${dim_float}</item>
@@ -816,26 +824,26 @@ else
     echo -e "  ${GREEN}┌──────────────────────────────────────────────────────────┐${NC}"
     echo -e "  ${GREEN}│${NC}  Device configuration detected                       ${GREEN}│${NC}"
     echo -e "  ${GREEN}└──────────────────────────────────────────────────────────┘${NC}"
-    echo ""
+    echo -e ""
     echo -e "  ${BOLD}Identity:${NC}"
-    echo "    Device:        ${DEVICE_MANUFACTURER} ${DEVICE_MODEL} (${DEVICE_CODENAME})"
-    echo "    Codename:      ${DEVICE_PROP_VALUE}"
-    echo "    Overlay:       ${OVERLAY_NAME}"
-    echo "    Package:       ${OVERLAY_PACKAGE}"
-    echo ""
+    echo -e "    Device:        ${DEVICE_MANUFACTURER} ${DEVICE_MODEL} (${DEVICE_CODENAME})"
+    echo -e "    Codename:      ${DEVICE_PROP_VALUE}"
+    echo -e "    Overlay:       ${OVERLAY_NAME}"
+    echo -e "    Package:       ${OVERLAY_PACKAGE}"
+    echo -e ""
     echo -e "  ${BOLD}Display:${NC}"
-    echo "    Rounded corners: ${ROUNDED_CORNER_RADIUS}px"
-    echo "    Status bar:      ${STATUS_BAR_HEIGHT}px"
-    echo ""
+    echo -e "    Rounded corners: ${ROUNDED_CORNER_RADIUS}px"
+    echo -e "    Status bar:      ${STATUS_BAR_HEIGHT}px"
+    echo -e ""
     echo -e "  ${BOLD}Features:${NC}"
-    echo "    UDFPS:           ${HAS_UDFPS}"
-    echo "    AOD:             ${HAS_AOD}"
-    echo "    Doze:            ${HAS_DOZE}"
-    echo "    5G:              ${HAS_5G}"
-    echo "    VoLTE:           ${HAS_VOLTE}"
-    echo ""
+    echo -e "    UDFPS:           ${HAS_UDFPS}"
+    echo -e "    AOD:             ${HAS_AOD}"
+    echo -e "    Doze:            ${HAS_DOZE}"
+    echo -e "    5G:              ${HAS_5G}"
+    echo -e "    VoLTE:           ${HAS_VOLTE}"
+    echo -e ""
     echo -e "  ${BOLD}Builder:${NC}"
-    echo "    Android:         ${ANDROID_VERSION} (API ${COMPILE_SDK_VERSION})"
+    echo -e "    Android:         ${ANDROID_VERSION} (API ${COMPILE_SDK_VERSION})"
     echo ""
     echo -e "  ${YELLOW}Are these values correct for your device?${NC}"
     read -r -p "  [Y/n] " confirm_values
@@ -1066,7 +1074,13 @@ generate_systemui_resource_xml
 # Compile framework-res overlay
 # ---------------------------------------------------------------------------
 step "Compiling framework-res overlay"
-aapt2 compile --dir res -o build/compiled/ 2>&1 | sed 's/^/  /' || { err "aapt2 compile failed"; exit 1; }
+# On ARM/Termux, compiling the whole dir can crash on hidden files.
+# We compile each .xml file individually for maximum robustness.
+mkdir -p build/compiled
+find res -name "*.xml" -type f | while read -r xml_file; do
+    info "  Compiling: $xml_file"
+    aapt2 compile "$xml_file" -o build/compiled/ 2>&1 | sed 's/^/    /' || { err "aapt2 compile failed for $xml_file"; exit 1; }
+done
 ok "Framework resources compiled"
 
 # ---------------------------------------------------------------------------
@@ -1075,7 +1089,10 @@ ok "Framework resources compiled"
 step "Compiling SystemUI overlay"
 mkdir -p build/compiled_systemui
 if [ -d "systemui_overlay/res" ] && [ "$(ls -A systemui_overlay/res 2>/dev/null)" ]; then
-    aapt2 compile --dir systemui_overlay/res -o build/compiled_systemui/ 2>&1 | sed 's/^/  /' || { err "aapt2 compile (systemui) failed"; exit 1; }
+    find systemui_overlay/res -name "*.xml" -type f | while read -r xml_file; do
+        info "  Compiling: $xml_file"
+        aapt2 compile "$xml_file" -o build/compiled_systemui/ 2>&1 | sed 's/^/    /' || { err "aapt2 compile (systemui) failed for $xml_file"; exit 1; }
+    done
     ok "SystemUI resources compiled"
 else
     info "No SystemUI resources found — skipping SystemUI overlay"
