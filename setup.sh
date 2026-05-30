@@ -159,7 +159,7 @@ if command -v apt &>/dev/null; then
             info "Some tools still missing after apt — falling back to manual download."
         fi
     fi
-elif command -v pacman &>/dev/null || [[ "$OS_ID" == "arch" || "$ID_LIKE" == *"arch"* ]]; then
+elif command -v pacman &>/dev/null || [[ "${OS_ID,,}" == "arch" || "${ID_LIKE,,}" == *"arch"* ]]; then
     echo -e "${BOLD}  Arch Linux detected.${NC}"
     echo "  Some tools are in AUR, but we can install the basics via pacman."
     echo ""
@@ -215,24 +215,48 @@ elif [ -d "/data/data/com.termux" ]; then
         check_tool zipalign
         check_tool apksigner
 
-        # For framework-res.apk in Termux, offering to pull from device
+        # For framework-res.apk in Termux, offering to pull or download
         if [ ! -f "/usr/share/android-framework-res/framework-res.apk" ] && [ ! -f "${TOOLS_DIR}/framework-res.apk" ]; then
             echo ""
-            info "Almost ready! We just need framework-res.apk."
-            echo "  Since you're on Android, I can pull it from your device (needs root/su)."
+            info "Almost ready! We just need framework-res.apk (the resource dictionary)."
+            echo "  Options for Termux:"
+            echo -e "    ${BOLD}[1]${NC} Download from Google (Android 15 SDK — ${GREEN}Recommended${NC})"
+            echo -e "    ${BOLD}[2]${NC} Download from Google (Android 16 Preview)"
+            echo -e "    ${BOLD}[3]${NC} Download from Google (Android 14 SDK)"
+            echo -e "    ${BOLD}[4]${NC} Pull from your device (${YELLOW}May fail on some GSIs/OEMs${NC})"
+            echo -e "    ${BOLD}[n]${NC} Skip for now"
             echo ""
-            echo -e "  ${YELLOW}Pull /system/framework/framework-res.apk? [y/N]${NC}"
-            read -r PULL_RES
-            if [[ "$PULL_RES" =~ ^[Yy]$ ]]; then
-                mkdir -p "${TOOLS_DIR}"
-                if cp /system/framework/framework-res.apk "${TOOLS_DIR}/framework-res.apk" 2>/dev/null; then
-                    ok "framework-res.apk pulled successfully"
-                elif su -c "cp /system/framework/framework-res.apk \"${TOOLS_DIR}/framework-res.apk\"" 2>/dev/null; then
-                    ok "framework-res.apk pulled successfully (via su)"
-                else
-                    err "Failed to pull framework-res.apk (permission denied)"
-                fi
-            fi
+            read -r -p "  Choose [1/2/3/4]: " termux_res_choice
+
+            case "$termux_res_choice" in
+                4)
+                    mkdir -p "${TOOLS_DIR}"
+                    info "Attempting to pull... note: if this fails to build later, use the Download option."
+                    if cp /system/framework/framework-res.apk "${TOOLS_DIR}/framework-res.apk" 2>/dev/null; then
+                        ok "framework-res.apk pulled successfully"
+                    elif su -c "cp /system/framework/framework-res.apk \"${TOOLS_DIR}/framework-res.apk\"" 2>/dev/null; then
+                        ok "framework-res.apk pulled successfully (via su)"
+                    else
+                        err "Failed to pull framework-res.apk"
+                    fi
+                    ;;
+                1|2|3)
+                    mkdir -p "${TOOLS_DIR}"
+                    local sdk_ver="35" # Default 15
+                    [ "$termux_res_choice" == "2" ] && sdk_ver="36"
+                    [ "$termux_res_choice" == "3" ] && sdk_ver="34"
+                    
+                    info "Downloading Android ${sdk_ver} platform SDK..."
+                    curl -sL "https://dl.google.com/android/repository/platform-${sdk_ver}_r01.zip" -o /tmp/platform.zip || \
+                    curl -sL "https://dl.google.com/android/repository/platform-${sdk_ver}_r02.zip" -o /tmp/platform.zip
+                    
+                    info "Extracting android.jar..."
+                    unzip -j /tmp/platform.zip "*/android.jar" -d "${TOOLS_DIR}/"
+                    mv "${TOOLS_DIR}/android.jar" "${TOOLS_DIR}/framework-res.apk"
+                    rm -f /tmp/platform.zip
+                    ok "Android ${sdk_ver} resources installed to tools/"
+                    ;;
+            esac
         fi
 
         if command -v aapt2 &>/dev/null && command -v zipalign &>/dev/null && \

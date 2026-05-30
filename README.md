@@ -52,25 +52,55 @@ All device-specific settings are in **[`config.env`](config.env)** — edit that
 Or install via your package manager:
 
 ```bash
+# ── Termux (Android) Native Guide ──
+This tool is fully compatible with Android devices via Termux. 
+
+> ⚠️ **IMPORTANT:** Do NOT clone this repo to `/sdcard` or a shared folder. Android prevents script execution on shared storage. You **MUST** work in the Termux internal home directory.
+
+1.  **Install Termux:** Use the [F-Droid version](https://f-droid.org/en/packages/com.termux/) for the latest updates.
+2.  **Setup storage access:**
+    ```bash
+    termux-setup-storage
+    ```
+3.  **Install dependencies:**
+    ```bash
+    pkg update && pkg upgrade
+    pkg install git aapt2 apksigner android-tools openjdk-17 unzip curl tsu
+    ```
+4.  **Clone the repo to internal storage:**
+    ```bash
+    cd ~
+    git clone https://github.com/your-username/treble-rro-creator
+    cd treble-rro-creator
+    ```
+5.  **Fix permissions and setup:**
+    ```bash
+    chmod +x *.sh
+    ./setup.sh
+    # Choose option 2, 3, or 4 in setup to download framework resources automatically.
+    ```
+6.  **Build:**
+    ```bash
+    ./build.sh
+    ```
+    *Final .zip will be in the project folder. You can move it to /sdcard/ to flash via Magisk/KSU.*
+
 # ── Debian / Ubuntu / Linux Mint ──
 sudo apt install -y aapt android-sdk-build-tools apksigner android-framework-res
 
 # ── Arch Linux / Manjaro (via AUR) ──
 # Install basics: sudo pacman -S android-tools jdk-openjdk
 # Then run ./setup.sh to get aapt2/apksigner
-
-# ── Termux (Android) ──
-# 1. Install Termux (F-Droid version is recommended for latest updates)
-# 2. Setup storage: termux-setup-storage
-# 3. Install tools: pkg install aapt2 apksigner android-tools openjdk-17
-# 4. Clone repo and run: ./setup.sh
 ```
 
-You also need the **Android framework-res APK** for compilation (setup.sh handles this):
+You also need the **Android framework-res APK** (the "Resource Dictionary") for compilation:
+- **What is it?** It is a reference file that tells `aapt2` which resource IDs (like `android:dimen/rounded_corner_radius`) exist in the system. 
+- **Recommendation:** **Download from Google (Option 3 below)** is the most reliable. APKs pulled from devices are often "optimized" or "stripped," which can cause `aapt2` errors during the build.
+
 - **Option 1:** `sudo apt install android-framework-res` (Debian/Ubuntu)
-- **Option 2:** Pull from your device: `adb pull /system/framework/framework-res.apk tools/`
-- **Option 3:** **(Termux Only)** `setup.sh` will pull it automatically (no root needed on most devices).
-- **Option 4:** From Android SDK: `./tools/cmdline-tools/bin/sdkmanager --sdk_root=tools/android-sdk "platforms;android-35"`
+- **Option 2:** Pull from your device: `adb pull /system/framework/framework-res.apk tools/` (Not recommended)
+- **Option 3:** **Recommended:** Use `./setup.sh` to download the clean Google SDK platform (works on PC & Termux).
+- **Option 4:** Manual SDK download: `./tools/cmdline-tools/bin/sdkmanager --sdk_root=tools/android-sdk "platforms;android-35"`
 
 ### Build
 
