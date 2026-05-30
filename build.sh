@@ -155,20 +155,20 @@ GENEOF
 
     # ── Corner radius (dimen) ────────────────────────────────────────────
     cat >> "$gen" << GENEOF
-    <dimen name="rounded_corner_radius">${ROUNDED_CORNER_RADIUS}px</dimen>
-    <dimen name="rounded_corner_radius_top">${ROUNDED_CORNER_RADIUS}px</dimen>
-    <dimen name="rounded_corner_radius_bottom">${ROUNDED_CORNER_RADIUS}px</dimen>
-    <dimen name="secondary_rounded_corner_radius">${ROUNDED_CORNER_RADIUS}px</dimen>
-    <dimen name="secondary_rounded_corner_radius_top">${ROUNDED_CORNER_RADIUS}px</dimen>
-    <dimen name="secondary_rounded_corner_radius_bottom">${ROUNDED_CORNER_RADIUS}px</dimen>
-    <dimen name="rounded_corner_content_padding">0px</dimen>
+    <dimen name="rounded_corner_radius">${ROUNDED_CORNER_RADIUS}dp</dimen>
+    <dimen name="rounded_corner_radius_top">${ROUNDED_CORNER_RADIUS}dp</dimen>
+    <dimen name="rounded_corner_radius_bottom">${ROUNDED_CORNER_RADIUS}dp</dimen>
+    <dimen name="secondary_rounded_corner_radius">${ROUNDED_CORNER_RADIUS}dp</dimen>
+    <dimen name="secondary_rounded_corner_radius_top">${ROUNDED_CORNER_RADIUS}dp</dimen>
+    <dimen name="secondary_rounded_corner_radius_bottom">${ROUNDED_CORNER_RADIUS}dp</dimen>
+    <dimen name="rounded_corner_content_padding">0dp</dimen>
 
 GENEOF
 
     # ── Status bar height (dimen) ────────────────────────────────────────
     cat >> "$gen" << GENEOF
-    <dimen name="status_bar_height">${STATUS_BAR_HEIGHT}px</dimen>
-    <dimen name="status_bar_height_portrait">${STATUS_BAR_HEIGHT}px</dimen>
+    <dimen name="status_bar_height">${STATUS_BAR_HEIGHT}dp</dimen>
+    <dimen name="status_bar_height_portrait">${STATUS_BAR_HEIGHT}dp</dimen>
 
 GENEOF
 
