@@ -761,15 +761,27 @@ fi
 
 source "$CONFIG_FILE"
 
-# Sanitize placeholders that could break XML or logic
-[[ "${LIGHT_SENSOR_TYPE}" == *"<"* ]] && LIGHT_SENSOR_TYPE="android.sensor.light"
-[[ "${DEVICE_MANUFACTURER}" == *"<"* ]] && DEVICE_MANUFACTURER="Generic"
-[[ "${DEVICE_MODEL}" == *"<"* ]] && DEVICE_MODEL="Generic Device"
-[[ "${DEVICE_CODENAME}" == *"<"* ]] && DEVICE_CODENAME="generic"
+# ── Auto-generate identity strings ─────────────────────────────────────────
+# Users only need to set DEVICE_CODENAME and DEVICE_MANUFACTURER
+[ -z "$DEVICE_MANUFACTURER" ] && DEVICE_MANUFACTURER="generic"
+[ -z "$DEVICE_CODENAME" ] && DEVICE_CODENAME="generic"
+[ -z "$OVERLAY_NAME" ] && OVERLAY_NAME="treble-overlay-${DEVICE_MANUFACTURER}-${DEVICE_CODENAME}"
+[ -z "$OVERLAY_PACKAGE" ] && OVERLAY_PACKAGE="me.phh.treble.overlay.${DEVICE_CODENAME}"
+[ -z "$OVERLAY_PACKAGE_SYSTEMUI" ] && OVERLAY_PACKAGE_SYSTEMUI="${OVERLAY_PACKAGE}.systemui"
+[ -z "$DEVICE_PROP_VALUE" ] && DEVICE_PROP_VALUE="${DEVICE_CODENAME}"
+[ -z "$DEVICE_PROP_NAME" ] && DEVICE_PROP_NAME="ro.product.device"
+[ -z "$ANDROID_VERSION" ] && ANDROID_VERSION="14"
+[ -z "$COMPILE_SDK_VERSION" ] && COMPILE_SDK_VERSION="34"
+[ -z "$MIN_SDK_VERSION" ] && MIN_SDK_VERSION="34"
+[ -z "$TARGET_SDK_VERSION" ] && TARGET_SDK_VERSION="34"
+[ -z "$OVERLAY_VERSION" ] && OVERLAY_VERSION="1.0"
+[ -z "$OVERLAY_VERSION_CODE" ] && OVERLAY_VERSION_CODE="1"
 
-# Validate required values (should always be set, even if placeholders)
-[ -z "$OVERLAY_NAME" ] && { err "OVERLAY_NAME not set in config.env"; exit 1; }
-[ -z "$DEVICE_PROP_VALUE" ] && { err "DEVICE_PROP_VALUE not set in config.env"; exit 1; }
+[[ "${LIGHT_SENSOR_TYPE}" == *"<"* ]] && LIGHT_SENSOR_TYPE="android.sensor.light"
+
+# Validate required values
+[ -z "$DEVICE_CODENAME" ] && { err "DEVICE_CODENAME not set in config.env"; exit 1; }
+[ -z "$DEVICE_MANUFACTURER" ] && { err "DEVICE_MANUFACTURER not set in config.env"; exit 1; }
 
 # ---------------------------------------------------------------------------
 # Device identity check — only check the key codename values
@@ -779,87 +791,36 @@ IDENTITY_VARS=("OVERLAY_NAME" "OVERLAY_PACKAGE" "OVERLAY_PACKAGE_SYSTEMUI" \
                "DEVICE_PROP_VALUE" "DEVICE_MANUFACTURER" "DEVICE_MODEL" "DEVICE_CODENAME")
 
 has_placeholder=false
-for var_name in "${IDENTITY_VARS[@]}"; do
-    val="${!var_name}"
-    if [[ "$val" == *"<"* ]]; then
-        has_placeholder=true
-        break
-    fi
-done
-
-if $has_placeholder; then
-    echo ""
-    echo -e "  ${YELLOW}┌──────────────────────────────────────────────────────────┐${NC}"
-    echo -e "  ${YELLOW}│${NC}  ⚠  Device codename not configured yet!                ${YELLOW}│${NC}"
-    echo -e "  ${YELLOW}│${NC}                                                       ${YELLOW}│${NC}"
-    echo -e "  ${YELLOW}│${NC}  The following values still have placeholders:         ${YELLOW}│${NC}"
-    for var_name in "${IDENTITY_VARS[@]}"; do
-        val="${!var_name}"
-        if [[ "$val" == *"<"* ]]; then
-            printf "  ${YELLOW}│${NC}    %-30s = %-20s ${YELLOW}│${NC}\n" "$var_name" "$val"
-        fi
-    done
-    echo -e "  ${YELLOW}│${NC}                                                       ${YELLOW}│${NC}"
-    echo -e "  ${YELLOW}│${NC}  You need to edit config.env and set your device info. ${YELLOW}│${NC}"
-    echo -e "  ${YELLOW}└──────────────────────────────────────────────────────────┘${NC}"
-    echo ""
-    echo -e "  ${BOLD}[1]${NC} Generate with generic values (for quick testing only)"
-    echo -e "  ${BOLD}[2]${NC} Cancel and edit config.env"
-    echo ""
-    read -r -p "  Choose [1/2]: " placeholder_choice
-
-    if [[ "$placeholder_choice" != "1" ]]; then
-        echo ""
-        echo -e "  ${YELLOW}→${NC} Edit config.env with your device's values, then re-run: ${BOLD}./build.sh${NC}"
-        echo ""
-        exit 0
-    fi
-
-    echo ""
-    info "Using generic values for this build (placeholder -> safe default):"
-    echo ""
-
-    # Apply generic safe defaults for identity vars
-    [[ "${OVERLAY_NAME}" == *"<"* ]]             && OVERLAY_NAME="treble-overlay-generic"             && info "  OVERLAY_NAME         → treble-overlay-generic"
-    [[ "${OVERLAY_PACKAGE}" == *"<"* ]]           && OVERLAY_PACKAGE="me.phh.treble.overlay.generic"    && info "  OVERLAY_PACKAGE       → me.phh.treble.overlay.generic"
-    [[ "${OVERLAY_PACKAGE_SYSTEMUI}" == *"<"* ]] && OVERLAY_PACKAGE_SYSTEMUI="me.phh.treble.overlay.generic.systemui" && info "  OVERLAY_PACKAGE_SYS...→ me.phh.treble.overlay.generic.systemui"
-    [[ "${DEVICE_PROP_VALUE}" == *"<"* ]]         && DEVICE_PROP_VALUE="generic"                       && info "  DEVICE_PROP_VALUE     → generic"
-    [[ "${DEVICE_MANUFACTURER}" == *"<"* ]]       && DEVICE_MANUFACTURER="Generic"                     && info "  DEVICE_MANUFACTURER   → Generic"
-    [[ "${DEVICE_MODEL}" == *"<"* ]]              && DEVICE_MODEL="Generic Device"                     && info "  DEVICE_MODEL          → Generic Device"
-    [[ "${DEVICE_CODENAME}" == *"<"* ]]           && DEVICE_CODENAME="generic"                         && info "  DEVICE_CODENAME       → generic"
-
-    # Also handle LIGHT_SENSOR_TYPE since it commonly has a placeholder too
-    [[ "${LIGHT_SENSOR_TYPE}" == *"<"* ]]         && LIGHT_SENSOR_TYPE="android.sensor.light"           && info "  LIGHT_SENSOR_TYPE     → android.sensor.light"
-    echo ""
-    echo -e "  ${YELLOW}⚠  These are TEST values. Edit config.env for real device values.${NC}"
-    echo ""
-else
-    # All identity values are filled — show summary and confirm
-    echo ""
-    echo -e "  ${GREEN}┌──────────────────────────────────────────────────────────┐${NC}"
-    echo -e "  ${GREEN}│${NC}  Device configuration detected                       ${GREEN}│${NC}"
-    echo -e "  ${GREEN}└──────────────────────────────────────────────────────────┘${NC}"
-    echo ""
-    echo -e "  ${BOLD}Identity:${NC}"
-    echo "    Device:        ${DEVICE_MANUFACTURER} ${DEVICE_MODEL} (${DEVICE_CODENAME})"
-    echo "    Codename:      ${DEVICE_PROP_VALUE}"
-    echo "    Overlay:       ${OVERLAY_NAME}"
-    echo "    Package:       ${OVERLAY_PACKAGE}"
-    echo ""
-    echo -e "  ${BOLD}Display:${NC}"
-    echo "    Rounded corners: ${ROUNDED_CORNER_RADIUS}px"
-    echo "    Status bar:      ${STATUS_BAR_HEIGHT}px"
-    echo ""
-    echo -e "  ${BOLD}Features:${NC}"
-    echo "    UDFPS:           ${HAS_UDFPS}"
-    echo "    AOD:             ${HAS_AOD}"
-    echo "    Doze:            ${HAS_DOZE}"
-    echo "    5G:              ${HAS_5G}"
-    echo "    VoLTE:           ${HAS_VOLTE}"
-    echo ""
-    echo -e "  ${BOLD}Builder:${NC}"
-    echo "    Android:         ${ANDROID_VERSION} (API ${COMPILE_SDK_VERSION})"
-    echo ""
+# ---------------------------------------------------------------------------
+# Device identity check
+# ---------------------------------------------------------------------------
+# All identity values are filled — show summary and confirm
+echo ""
+echo -e "  ${GREEN}┌──────────────────────────────────────────────────────────┐${NC}"
+echo -e "  ${GREEN}│${NC}  Device configuration detected                       ${GREEN}│${NC}"
+echo -e "  ${GREEN}└──────────────────────────────────────────────────────────┘${NC}"
+echo -e ""
+echo -e "  ${BOLD}Identity:${NC}"
+echo -e "    Device:        ${DEVICE_MANUFACTURER} ${DEVICE_MODEL} (${DEVICE_CODENAME})"
+echo -e "    Codename:      ${DEVICE_PROP_VALUE}"
+echo -e "    Overlay:       ${OVERLAY_NAME}"
+echo -e "    Package:       ${OVERLAY_PACKAGE}"
+echo -e ""
+echo -e "  ${BOLD}Display:${NC}"
+echo -e "    Rounded corners: ${ROUNDED_CORNER_RADIUS}px"
+echo -e "    Status bar:      ${STATUS_BAR_HEIGHT}px"
+echo -e ""
+echo -e "  ${BOLD}Features:${NC}"
+echo -e "    UDFPS:           ${HAS_UDFPS}"
+echo -e "    AOD:             ${HAS_AOD}"
+echo -e "    Doze:            ${HAS_DOZE}"
+echo -e "    5G:              ${HAS_5G}"
+echo -e "    VoLTE:           ${HAS_VOLTE}"
+echo -e ""
+echo -e "  ${BOLD}Builder:${NC}"
+echo -e "    Android:         ${ANDROID_VERSION} (API ${COMPILE_SDK_VERSION})"
+echo ""
+if [ "$CHECK_MODE" != "true" ]; then
     echo -e "  ${YELLOW}Are these values correct for your device?${NC}"
     read -r -p "  [Y/n] " confirm_values
 
@@ -869,29 +830,9 @@ else
         echo ""
         exit 0
     fi
-    echo ""
 fi
-
-echo -e "${BOLD}"
-echo "  ╔══════════════════════════════════════════════════════╗"
-echo "  ║           Treble Overlay Builder                     ║"
-echo "  ╚══════════════════════════════════════════════════════╝"
-echo -e "${NC}"
-echo "  Device:    ${BOLD}${DEVICE_MANUFACTURER} ${DEVICE_MODEL}${NC}"
-echo "  Codename:  ${DEVICE_CODENAME} (prop: ${DEVICE_PROP_NAME}=${DEVICE_PROP_VALUE})"
-echo "  Overlay:   ${OVERLAY_NAME}"
-echo "  Android:   ${ANDROID_VERSION} (API ${COMPILE_SDK_VERSION})"
-
-# Store derived values
-OVERLAY_VERSION="1.0"
-OVERLAY_VERSION_CODE=1
-
-# ---------------------------------------------------------------------------
-# Backup previous configuration
-# ---------------------------------------------------------------------------
-step "Backing up current config"
-do_backup
-
+echo ""
+    echo -e ""
 # ---------------------------------------------------------------------------
 # Build mode selection
 # ---------------------------------------------------------------------------
@@ -899,12 +840,6 @@ step "Build mode"
 
 HAS_VENDOR_FILES=false
 if [ -d "system/vendor/bin/hw" ] && [ "$(ls -A system/vendor/bin/hw/ 2>/dev/null | grep -c .)" -gt 0 ]; then
-    HAS_VENDOR_FILES=true
-fi
-
-if [ "$HAS_VENDOR_FILES" = "true" ]; then
-    echo ""
-    echo -e "  ${BOLD}Vendor HAL files detected in system/vendor/${NC}"
     echo -e ""
     echo -e "  ${BOLD}[1]${NC} Overlay-only — simpler, safer, no vendor HALs"
     echo -e "  ${BOLD}[2]${NC} Include vendor HALs — for fingerprint, vibrator, etc."
@@ -921,7 +856,6 @@ else
     INCLUDE_VENDOR_HALS=false
     echo -e "  ${YELLOW}→${NC} No vendor HAL files found — building overlay-only"
 fi
-
 # ---------------------------------------------------------------------------
 # Dependency check
 # ---------------------------------------------------------------------------
