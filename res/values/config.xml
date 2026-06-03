@@ -133,9 +133,6 @@
          Qualcomm IMS service bindings for SM8150.
          Source: device_samsung_r3q/overlay/frameworks/base/core/res/res/values/config.xml
          ============================================================ -->
-    <string name="config_qualified_networks_service_package" translatable="false">vendor.qti.iwlan</string>
-    <string name="config_wlan_data_service_package" translatable="false">vendor.qti.iwlan</string>
-    <string name="config_wlan_network_service_package" translatable="false">vendor.qti.iwlan</string>
 
     <!-- ============================================================
          5G / VoLTE — Phh-Treble properties + slsiims IMS overlay
