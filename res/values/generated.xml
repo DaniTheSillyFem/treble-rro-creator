@@ -6,37 +6,27 @@
 -->
 <resources>
 
-    <bool name="config_supportsUdfps">true</bool>
-    <bool name="config_supportsScreenOffUdfps">true</bool>
-
     <bool name="config_dozeAlwaysOnDisplayAvailable">true</bool>
 
-    <bool name="config_dozeAfterScreenOffByDefault">true</bool>
-    <bool name="config_dozePulsePickup">true</bool>
-
-    <bool name="config_automatic_brightness_available">true</bool>
-
-    <bool name="config_dynamic_automatic_brightness_available">true</bool>
-    <integer name="config_screenBrightnessExtendedMaximum">486</integer>
-
-    <bool name="config_telephony5gNonStandalone">true</bool>
+    <bool name="config_supportDoubleTapWake">true</bool>
 
     <bool name="config_device_volte_available">true</bool>
     <bool name="config_device_vt_available">true</bool>
     <bool name="config_device_wfc_ims_available">true</bool>
 
-    <dimen name="rounded_corner_radius">100.0px</dimen>
-    <dimen name="rounded_corner_radius_top">100.0px</dimen>
-    <dimen name="rounded_corner_radius_bottom">100.0px</dimen>
-    <dimen name="secondary_rounded_corner_radius">100.0px</dimen>
-    <dimen name="secondary_rounded_corner_radius_top">100.0px</dimen>
-    <dimen name="secondary_rounded_corner_radius_bottom">100.0px</dimen>
+    <dimen name="rounded_corner_radius">85.0px</dimen>
+    <dimen name="rounded_corner_radius_top">85.0px</dimen>
+    <dimen name="rounded_corner_radius_bottom">85.0px</dimen>
+    <dimen name="secondary_rounded_corner_radius">85.0px</dimen>
+    <dimen name="secondary_rounded_corner_radius_top">85.0px</dimen>
+    <dimen name="secondary_rounded_corner_radius_bottom">85.0px</dimen>
     <dimen name="rounded_corner_content_padding">0px</dimen>
 
-    <dimen name="status_bar_height">76.0px</dimen>
-    <dimen name="status_bar_height_portrait">76.0px</dimen>
+    <dimen name="status_bar_height">65.0px</dimen>
+    <dimen name="status_bar_height_portrait">65.0px</dimen>
+    <dimen name="status_bar_height_landscape">24.0px</dimen>
 
-    <string name="config_displayLightSensorType" translatable="false">android.sensor.light</string>
+    <string name="config_displayLightSensorType" translatable="false">com.samsung.sensor.physical_light</string>
 
     <integer name="config_screenBrightnessDim">15</integer>
     <integer name="config_screenBrightnessDark">3</integer>
@@ -45,19 +35,15 @@
     <integer name="config_screenBrightnessSettingDefault">128</integer>
     <integer name="config_screenBrightnessSettingMaximum">255</integer>
 
-    <item name="config_screenBrightnessDozeFloat" format="float" type="dimen">0.23529411</item>
-    <item name="config_screenBrightnessDimFloat" format="float" type="dimen">0.05882352</item>
-    <item name="config_screenBrightnessSettingMinimumFloat" format="float" type="dimen">0.0</item>
-    <item name="config_screenBrightnessSettingDefaultFloat" format="float" type="dimen">0.50196078</item>
-    <item name="config_screenBrightnessSettingMaximumFloat" format="float" type="dimen">1.00000000</item>
+    <item name="config_screenBrightnessDozeFloat" format="float" type="dimen">.0</item>
+    <item name="config_screenBrightnessDimFloat" format="float" type="dimen">.0</item>
+    <item name="config_screenBrightnessSettingMinimumFloat" format="float" type="dimen">.0</item>
+    <item name="config_screenBrightnessSettingDefaultFloat" format="float" type="dimen">.0</item>
+    <item name="config_screenBrightnessSettingMaximumFloat" format="float" type="dimen">.0</item>
+
+    <string name="config_mainBuiltInDisplayCutout" translatable="false">M 0,0 H -46.93333333333333 V 24 H 46.93333333333333 V 0 H 0 Z @dp</string>
 
     <integer name="config_defaultRefreshRate">60</integer>
     <integer name="config_defaultPeakRefreshRate">60</integer>
-
-    <integer-array name="config_udfps_sensor_props">
-        <item>540</item>
-        <item>2145</item>
-        <item>114</item>
-    </integer-array>
 
 </resources>
