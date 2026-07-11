@@ -34,6 +34,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+print_dimension() {
+    local label="$1"
+    local value="$2"
+
+    if [[ "$value" =~ (px|mm)$ ]]; then
+        echo -e "    ${label} ${value}"
+    else
+        echo -e "    ${label} ${value}px"
+    fi
+}
+
 # ── Clean up editor backups ────────────────────────────────────────────────
 # Some editors (like MT Manager in Termux) create .bak files. These cause
 # errors during resource compilation (aapt2) and module packaging.
@@ -177,13 +188,19 @@ GENEOF
 
     # ── Corner radius (dimen) — optional, skip if not set ────────────────
     if [ -n "$ROUNDED_CORNER_RADIUS" ] && [[ "$ROUNDED_CORNER_RADIUS" != *"<"* ]]; then
+        if [[ "$ROUNDED_CORNER_RADIUS" =~ (px|mm)$ ]]; then
+            rc="$ROUNDED_CORNER_RADIUS"
+        else
+            rc="${ROUNDED_CORNER_RADIUS}px"
+        fi
+
         cat >> "$gen" << GENEOF
-    <dimen name="rounded_corner_radius">${ROUNDED_CORNER_RADIUS}.0px</dimen>
-    <dimen name="rounded_corner_radius_top">${ROUNDED_CORNER_RADIUS}.0px</dimen>
-    <dimen name="rounded_corner_radius_bottom">${ROUNDED_CORNER_RADIUS}.0px</dimen>
-    <dimen name="secondary_rounded_corner_radius">${ROUNDED_CORNER_RADIUS}.0px</dimen>
-    <dimen name="secondary_rounded_corner_radius_top">${ROUNDED_CORNER_RADIUS}.0px</dimen>
-    <dimen name="secondary_rounded_corner_radius_bottom">${ROUNDED_CORNER_RADIUS}.0px</dimen>
+    <dimen name="rounded_corner_radius">${rc}</dimen>
+    <dimen name="rounded_corner_radius_top">${rc}</dimen>
+    <dimen name="rounded_corner_radius_bottom">${rc}</dimen>
+    <dimen name="secondary_rounded_corner_radius">${rc}</dimen>
+    <dimen name="secondary_rounded_corner_radius_top">${rc}</dimen>
+    <dimen name="secondary_rounded_corner_radius_bottom">${rc}</dimen>
     <dimen name="rounded_corner_content_padding">0px</dimen>
 
 GENEOF
@@ -191,12 +208,24 @@ GENEOF
 
     # ── Status bar height (dimen) — optional, skip if not set ────────────
     if [ -n "$STATUS_BAR_HEIGHT" ] && [[ "$STATUS_BAR_HEIGHT" != *"<"* ]]; then
-        # If landscape height is not set, use portrait height
+        if [[ "$STATUS_BAR_HEIGHT" =~ (px|mm)$ ]]; then
+            sb="$STATUS_BAR_HEIGHT"
+        else
+            sb="${STATUS_BAR_HEIGHT}px"
+        fi
+
         local sb_land="${STATUS_BAR_HEIGHT_LANDSCAPE:-$STATUS_BAR_HEIGHT}"
+
+        if [[ "$sb_land" =~ (px|mm)$ ]]; then
+            :
+        else
+            sb_land="${sb_land}px"
+        fi
+
         cat >> "$gen" << GENEOF
-    <dimen name="status_bar_height">${STATUS_BAR_HEIGHT}.0px</dimen>
-    <dimen name="status_bar_height_portrait">${STATUS_BAR_HEIGHT}.0px</dimen>
-    <dimen name="status_bar_height_landscape">${sb_land}.0px</dimen>
+    <dimen name="status_bar_height">${sb}</dimen>
+    <dimen name="status_bar_height_portrait">${sb}</dimen>
+    <dimen name="status_bar_height_landscape">${sb_land}</dimen>
 
 GENEOF
     fi
@@ -860,6 +889,7 @@ if [ ! -f "$CONFIG_FILE" ]; then
         echo -e "  ${YELLOW}Generating placeholder config.env — edit it for YOUR device, then re-run.${NC}\n"
 
         cat > "$CONFIG_FILE" << 'DEFAULT_CONFIG'
+
 # =============================================================================
 # Treble Overlay — Device Configuration
 # =============================================================================
@@ -1018,8 +1048,8 @@ echo -e "    Overlay:       ${OVERLAY_NAME}"
 echo -e "    Package:       ${OVERLAY_PACKAGE}"
 echo -e ""
 echo -e "  ${BOLD}Display:${NC}"
-[ -n "$ROUNDED_CORNER_RADIUS" ] && [[ "$ROUNDED_CORNER_RADIUS" != *"<"* ]] && echo -e "    Rounded corners: ${ROUNDED_CORNER_RADIUS}px"
-[ -n "$STATUS_BAR_HEIGHT" ] && [[ "$STATUS_BAR_HEIGHT" != *"<"* ]] && echo -e "    Status bar:      ${STATUS_BAR_HEIGHT}px"
+[ -n "$ROUNDED_CORNER_RADIUS" ] && [[ "$ROUNDED_CORNER_RADIUS" != *"<"* ]] && print_dimension "Rounded corners:" "$ROUNDED_CORNER_RADIUS"
+[ -n "$STATUS_BAR_HEIGHT" ] && [[ "$STATUS_BAR_HEIGHT" != *"<"* ]] && print_dimension "Status bar:     " "$STATUS_BAR_HEIGHT"
 echo -e ""
 echo -e "  ${BOLD}Features:${NC}"
 echo -e "    UDFPS:           ${HAS_UDFPS}"
