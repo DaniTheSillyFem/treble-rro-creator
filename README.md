@@ -15,10 +15,12 @@ This project builds a Magisk/KSU module containing:
 - **SystemUI overlay** — SystemUI tweaks (doze/AOD behavior)
 - **Vendor HALs** — optional device-specific HAL binaries (fingerprint, vibrator, etc.)
 
+Forked from uzbforce, this repo adds support for mm values over px in config.env, read more to understand
+
 All device-specific settings are in **[`config.env`](config.env)** — edit that file, then run `./build.sh`.
 
-> **Reference device throughout this guide:** Samsung Galaxy A90 5G (SM-A908 / r3q)  
-> Snapdragon 855, 6.7" FHD+ Super AMOLED, UDFPS Goodix ET715
+> **Reference device throughout this guide:** Samsung Galaxy A04 (SM-A045 / a04)  
+> Mediatek Helio P35, 6.5" HD LCD PLS panel
 
 ---
 
